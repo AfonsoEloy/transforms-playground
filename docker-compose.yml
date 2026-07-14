@@ -25,7 +25,9 @@ services:
   # Vite dev server for the playground.
   dev:
     <<: *node
-    command: ['npm', 'run', 'dev', '--', '--host', '0.0.0.0']
+    # Host binding is set in vite.config.ts (server.host); forwarding --host
+    # through the nested npm workspace scripts drops the `--` and misfires.
+    command: ['npm', 'run', 'dev']
     ports:
       - '5173:5173'
 
