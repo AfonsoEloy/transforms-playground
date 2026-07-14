@@ -1,0 +1,7 @@
+node_modules
+dist
+coverage
+package-lock.json
+
+# Authored prose / decision log — not machine-reflowed (DECISIONS.md is append-only).
+*.md

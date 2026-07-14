@@ -1,0 +1,33 @@
+# All tooling runs in these containers — see DECISIONS.md #008 and CLAUDE.md.
+# One-off commands:  docker compose run --rm app npm <cmd>
+# Dev server:        docker compose up dev   (http://localhost:5173)
+
+x-node: &node
+  image: node:22-bookworm-slim
+  working_dir: /app
+  environment:
+    # Keep npm's cache inside a container-owned path, not the bind mount.
+    npm_config_cache: /tmp/.npm
+  volumes:
+    - .:/app
+    # Named/anonymous volumes shadow the bind mount so host stays clean and
+    # workspace symlinks resolve inside the container.
+    - root_node_modules:/app/node_modules
+    - /app/packages/rigid-kit/node_modules
+    - /app/apps/playground/node_modules
+
+services:
+  # General-purpose runner for install / test / typecheck / lint / build.
+  app:
+    <<: *node
+    command: ['node', '--version']
+
+  # Vite dev server for the playground.
+  dev:
+    <<: *node
+    command: ['npm', 'run', 'dev', '--', '--host', '0.0.0.0']
+    ports:
+      - '5173:5173'
+
+volumes:
+  root_node_modules:
