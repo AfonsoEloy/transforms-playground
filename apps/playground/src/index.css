@@ -172,6 +172,17 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.copy-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.copy-format {
+  padding: 0.15rem 0.3rem;
+  font-size: 0.78rem;
+}
+
 .copy-btn {
   background: transparent;
   color: var(--accent);

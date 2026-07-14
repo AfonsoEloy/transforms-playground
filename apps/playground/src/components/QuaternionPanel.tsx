@@ -10,6 +10,7 @@ import type { Dispatch } from 'react';
 import type { DerivedViews } from '../derive.js';
 import type { Action, AppState } from '../state/app-state.js';
 import { formatNumber } from '../format.js';
+import { quaternionCopyFormats } from '../copy.js';
 import { NumberField } from './NumberField.js';
 import { Panel } from './Panel.js';
 import { commitShown } from './commit.js';
@@ -37,7 +38,7 @@ export function QuaternionPanel({ state, views, dispatch }: Props) {
     commitShown(dispatch, state.passive, next);
   }
 
-  const copyText = order.map((k) => formatNumber(q[k], state.precision)).join(', ');
+  const copyFormats = quaternionCopyFormats(q, state.quatOrder, state.precision);
 
   const footer = (
     <>
@@ -59,7 +60,7 @@ export function QuaternionPanel({ state, views, dispatch }: Props) {
   );
 
   return (
-    <Panel title="Quaternion" copyText={copyText} footer={footer}>
+    <Panel title="Quaternion" copyFormats={copyFormats} footer={footer}>
       <div className="field-row">
         {order.map((k) => (
           <label key={k} className="field">

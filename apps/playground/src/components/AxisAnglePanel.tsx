@@ -9,7 +9,8 @@ import { axisAngle, axisAngleToQuaternion, vec3 } from 'rigid-kit';
 import type { Dispatch } from 'react';
 import type { DerivedViews } from '../derive.js';
 import type { Action, AppState } from '../state/app-state.js';
-import { formatNumber, radToUnit, unitToRad } from '../format.js';
+import { radToUnit, unitToRad } from '../format.js';
+import { axisAngleCopyFormats } from '../copy.js';
 import { NumberField } from './NumberField.js';
 import { Panel } from './Panel.js';
 import { commitShown } from './commit.js';
@@ -45,9 +46,7 @@ export function AxisAnglePanel({ state, views, dispatch }: Props) {
 
   const unitSuffix = unit === 'deg' ? '°' : 'rad';
   const axes: readonly Axis[] = ['x', 'y', 'z'];
-  const copyText =
-    `[${axes.map((k) => formatNumber(aa.axis[k], state.precision)).join(', ')}], ` +
-    `${formatNumber(radToUnit(aa.angle, unit), state.precision)} ${unit}`;
+  const copyFormats = axisAngleCopyFormats(aa, unit, state.precision);
 
   const footer =
     Math.abs(aa.angle) < 1e-9 ? (
@@ -55,7 +54,7 @@ export function AxisAnglePanel({ state, views, dispatch }: Props) {
     ) : undefined;
 
   return (
-    <Panel title="Axis–angle" copyText={copyText} footer={footer}>
+    <Panel title="Axis–angle" copyFormats={copyFormats} footer={footer}>
       <div className="field-row">
         {axes.map((k) => (
           <label key={k} className="field">

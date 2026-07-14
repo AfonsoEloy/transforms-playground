@@ -9,7 +9,8 @@ import { rotationVector, rotationVectorToQuaternion } from 'rigid-kit';
 import type { Dispatch } from 'react';
 import type { DerivedViews } from '../derive.js';
 import type { Action, AppState } from '../state/app-state.js';
-import { formatNumber, radToUnit, unitToRad } from '../format.js';
+import { radToUnit, unitToRad } from '../format.js';
+import { rotationVectorCopyFormats } from '../copy.js';
 import { NumberField } from './NumberField.js';
 import { Panel } from './Panel.js';
 import { commitShown } from './commit.js';
@@ -38,12 +39,10 @@ export function RotationVectorPanel({ state, views, dispatch }: Props) {
 
   const unitSuffix = unit === 'deg' ? '°' : 'rad';
   const axes: readonly Axis[] = ['x', 'y', 'z'];
-  const copyText = `[${axes
-    .map((k) => formatNumber(radToUnit(r[k], unit), state.precision))
-    .join(', ')}] ${unit}`;
+  const copyFormats = rotationVectorCopyFormats(r, unit, state.precision);
 
   return (
-    <Panel title="Rotation vector" copyText={copyText}>
+    <Panel title="Rotation vector" copyFormats={copyFormats}>
       <div className="field-row">
         {axes.map((k) => (
           <label key={k} className="field">

@@ -19,6 +19,7 @@ import { useState, type Dispatch } from 'react';
 import type { DerivedViews } from '../derive.js';
 import type { Action, AppState } from '../state/app-state.js';
 import { formatNumber } from '../format.js';
+import { matrixCopyFormats } from '../copy.js';
 import { NumberField } from './NumberField.js';
 import { Panel } from './Panel.js';
 import { commitShown } from './commit.js';
@@ -86,9 +87,7 @@ export function MatrixPanel({ state, views, dispatch }: Props) {
     }
   }
 
-  const copyText = ROWS.map((row) =>
-    row.map((k) => formatNumber(shown[k], state.precision)).join('  '),
-  ).join('\n');
+  const copyFormats = matrixCopyFormats(shown, state.precision);
 
   const dirty = pending !== null;
   const needsRepair = err > ORTHO_TOL || det <= 0;
@@ -113,7 +112,7 @@ export function MatrixPanel({ state, views, dispatch }: Props) {
   );
 
   return (
-    <Panel title="Rotation matrix" copyText={copyText} footer={footer}>
+    <Panel title="Rotation matrix" copyFormats={copyFormats} footer={footer}>
       <div className="matrix-grid">
         {ROWS.map((row, i) =>
           row.map((k, j) => (

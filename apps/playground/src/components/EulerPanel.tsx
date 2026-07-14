@@ -16,6 +16,7 @@ import type { Dispatch } from 'react';
 import type { DerivedViews } from '../derive.js';
 import type { Action, AppState } from '../state/app-state.js';
 import { formatNumber, radToUnit, unitToRad } from '../format.js';
+import { eulerCopyFormats } from '../copy.js';
 import { NumberField } from './NumberField.js';
 import { Panel } from './Panel.js';
 import { commitShown } from './commit.js';
@@ -46,9 +47,13 @@ export function EulerPanel({ state, views, dispatch }: Props) {
 
   const slots: readonly Slot[] = ['a1', 'a2', 'a3'];
   const unitSuffix = unit === 'deg' ? '°' : 'rad';
-  const copyText =
-    slots.map((s) => formatNumber(radToUnit(e[s], unit), state.precision)).join(', ') +
-    ` (${state.eulerOrder}, ${state.eulerFrame}, ${unit})`;
+  const copyFormats = eulerCopyFormats(
+    e,
+    state.eulerOrder,
+    state.eulerFrame,
+    unit,
+    state.precision,
+  );
 
   const footer = views.nearGimbalLock ? (
     <p className="warn">
@@ -58,7 +63,7 @@ export function EulerPanel({ state, views, dispatch }: Props) {
   ) : undefined;
 
   return (
-    <Panel title="Euler angles" copyText={copyText} footer={footer}>
+    <Panel title="Euler angles" copyFormats={copyFormats} footer={footer}>
       <div className="field-row wrap">
         <label className="field">
           <span className="field-label">order</span>
