@@ -37,6 +37,13 @@ export interface TriadOptions {
   readonly opacity: number;
   /** Whether to attach X/Y/Z tip labels (only the reference frame needs them). */
   readonly labels: boolean;
+  /**
+   * Distance from the origin at which to place the X/Y/Z labels. Set this beyond
+   * every OTHER arrow in the scene so a label never lands on an arrow that lines
+   * up with a world axis (labels draw depth-test-free and would otherwise show
+   * through it). Defaults to just past this triad's own tip.
+   */
+  readonly labelDistance?: number;
 }
 
 /** Set opacity on a Three material (or material array), enabling transparency. */
@@ -66,7 +73,7 @@ export function buildTriad(options: TriadOptions): Group {
   group.add(makeArrow(DIR_Z, length, AXIS_COLORS.z, opacity));
 
   if (labels) {
-    const tip = length * 1.12;
+    const tip = options.labelDistance ?? length * 1.12;
     const lx = makeAxisLabel('X', AXIS_LABEL_COLORS.x);
     lx.position.set(tip, 0, 0);
     const ly = makeAxisLabel('Y', AXIS_LABEL_COLORS.y);

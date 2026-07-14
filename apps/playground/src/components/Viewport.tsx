@@ -50,6 +50,15 @@ const GRID_LINE_DARK = new Color('#2a2d31');
 /** Below this rotation angle (rad) the axis is undefined, so hide the axis arrow. */
 const AXIS_MIN_ANGLE = 1e-6;
 
+// Element lengths (world units). The X/Y/Z labels sit at LABEL_DISTANCE, which is
+// kept beyond EVERY arrow below so a label never lands inside an arrow that lines
+// up with a world axis (labels are depth-test-free and would show through it).
+const REFERENCE_LEN = 1.0;
+const ROTATED_LEN = 1.2;
+const PROBE_LEN = 1.2;
+const AXIS_LEN = 1.25;
+const LABEL_DISTANCE = 1.45;
+
 function prefersDark(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -139,16 +148,21 @@ export function Viewport(props: ViewportProps): JSX.Element {
     worldRoot.add(grid);
 
     // Static reference frame (dim, labelled) and the live rotated frame (vivid).
-    const referenceFrame = buildTriad({ length: 1.0, opacity: 0.35, labels: true });
+    const referenceFrame = buildTriad({
+      length: REFERENCE_LEN,
+      opacity: 0.35,
+      labels: true,
+      labelDistance: LABEL_DISTANCE,
+    });
     worldRoot.add(referenceFrame);
 
-    const rotatedFrame = buildTriad({ length: 1.2, opacity: 1.0, labels: false });
+    const rotatedFrame = buildTriad({ length: ROTATED_LEN, opacity: 1.0, labels: false });
     worldRoot.add(rotatedFrame);
 
     // Markers: probe direction, where it maps to, and the rotation axis.
-    const probeArrow = buildArrow(MARKER_COLORS.probe, 1.35);
-    const mappedArrow = buildArrow(MARKER_COLORS.mapped, 1.35, 0.85);
-    const axisArrow = buildArrow(MARKER_COLORS.axis, 1.5, 0.9);
+    const probeArrow = buildArrow(MARKER_COLORS.probe, PROBE_LEN);
+    const mappedArrow = buildArrow(MARKER_COLORS.mapped, PROBE_LEN, 0.85);
+    const axisArrow = buildArrow(MARKER_COLORS.axis, AXIS_LEN, 0.9);
     worldRoot.add(probeArrow, mappedArrow, axisArrow);
 
     // Reusable scratch objects so the frame loop allocates nothing.
