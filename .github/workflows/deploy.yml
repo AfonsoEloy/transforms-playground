@@ -1,0 +1,63 @@
+# Build the static playground and publish it to GitHub Pages.
+#
+# The build runs inside the same node:22 container the repo uses locally
+# (DECISIONS #008: all tooling runs in Docker, so CI and "works on my machine"
+# converge). Install + build happen in ONE `docker compose run` so the workspace
+# node_modules volumes stay consistent within a single container.
+#
+# One-time setup in the repo: Settings → Pages → Source = "GitHub Actions"
+# (the configure-pages step below also attempts to enable it automatically).
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least-privilege token scopes the Pages deploy needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; let a newer push cancel an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install and build (in Docker)
+        run: docker compose run --rm app sh -c "npm ci && npm run build"
+
+      # dist is written by the container's root user; hand it back to the runner
+      # so the artifact upload can read it cleanly.
+      - name: Fix build output ownership
+        run: sudo chown -R "$USER" apps/playground/dist
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/playground/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
