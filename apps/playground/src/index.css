@@ -420,3 +420,35 @@ button:disabled {
   color: var(--muted);
   font-size: 0.75rem;
 }
+
+/* Paste / import panel (SPEC §4 Phase 4). */
+.import-textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  padding: 0.5rem 0.6rem;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.import-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.import-clear {
+  color: var(--muted);
+}
+
+.import-ok {
+  color: var(--accent);
+}
+
+.import-error {
+  color: var(--warn);
+}

@@ -117,6 +117,7 @@ export const INITIAL_STATE: AppState = {
 export type Action =
   | { readonly type: 'setRotation'; readonly rotation: Quaternion }
   | { readonly type: 'setTranslation'; readonly translation: Vec3 }
+  | { readonly type: 'setSelectedTransform'; readonly transform: Transform }
   | { readonly type: 'resetSelected' }
   | { readonly type: 'addElement' }
   | { readonly type: 'removeElement'; readonly id: string }
@@ -169,6 +170,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return updateSelected(state, (t) => transform(action.rotation, t.translation));
     case 'setTranslation':
       return updateSelected(state, (t) => transform(t.rotation, action.translation));
+    case 'setSelectedTransform':
+      return updateSelected(state, () => action.transform);
     case 'resetSelected':
       return updateSelected(state, () => IDENTITY_TRANSFORM);
     case 'addElement': {

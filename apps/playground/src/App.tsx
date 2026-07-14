@@ -19,6 +19,7 @@ import { EulerPanel } from './components/EulerPanel.js';
 import { AxisAnglePanel } from './components/AxisAnglePanel.js';
 import { RotationVectorPanel } from './components/RotationVectorPanel.js';
 import { TranslationPanel } from './components/TranslationPanel.js';
+import { ImportPanel } from './components/ImportPanel.js';
 
 export function App() {
   const [state, dispatch] = useUrlState();
@@ -161,6 +162,7 @@ export function App() {
         <AxisAnglePanel state={state} views={views} dispatch={dispatch} />
         <RotationVectorPanel state={state} views={views} dispatch={dispatch} />
         <TranslationPanel state={state} views={views} dispatch={dispatch} />
+        <ImportPanel state={state} dispatch={dispatch} />
       </div>
     </main>
   );
