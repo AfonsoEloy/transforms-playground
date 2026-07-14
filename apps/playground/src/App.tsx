@@ -5,11 +5,16 @@
  * editing any representation updates all the others live (SPEC §4 Phase 1).
  */
 
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { deriveViews } from './derive.js';
 import { MAX_PRECISION, MIN_PRECISION, type AngleUnit, type QuatOrder } from './state/app-state.js';
 import { useUrlState } from './state/use-url-state.js';
-import { Viewport } from './components/Viewport.js';
+// The 3D viewport pulls in all of Three.js. Load it as a separate async chunk so
+// the conversion panels (the core value) paint before Three.js downloads — the
+// only Three.js importers are Viewport + adapters/, so this cleanly quarantines it.
+const Viewport = lazy(() =>
+  import('./components/Viewport.js').then((m) => ({ default: m.Viewport })),
+);
 import { ViewControls } from './components/ViewControls.js';
 import { ChainPanel } from './components/ChainPanel.js';
 import { ChainResult } from './components/ChainResult.js';
@@ -130,17 +135,25 @@ export function App() {
         </div>
       </section>
 
-      <Viewport
-        rotation={views.composed.orientation}
-        translation={views.composed.translation}
-        probe={views.probeUnit}
-        axis={views.composed.axisAngle.axis}
-        angle={views.composed.axisAngle.angle}
-        showAxis={state.showAxis}
-        sweep={sweep}
-        frames={views.frames}
-        showIntermediates={state.showIntermediates}
-      />
+      <Suspense
+        fallback={
+          <div className="viewport">
+            <span className="viewport-fallback">Loading 3D view…</span>
+          </div>
+        }
+      >
+        <Viewport
+          rotation={views.composed.orientation}
+          translation={views.composed.translation}
+          probe={views.probeUnit}
+          axis={views.composed.axisAngle.axis}
+          angle={views.composed.axisAngle.angle}
+          showAxis={state.showAxis}
+          sweep={sweep}
+          frames={views.frames}
+          showIntermediates={state.showIntermediates}
+        />
+      </Suspense>
 
       <ViewControls
         state={state}
