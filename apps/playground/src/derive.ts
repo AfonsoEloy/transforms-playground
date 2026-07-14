@@ -1,40 +1,49 @@
 /**
- * Derive every representation from the canonical quaternion hub (SPEC §4 Phase 1:
- * "editing any panel updates all others live"). This is the read side — panels
- * render from `deriveViews(state)`; the write side is each panel converting its
- * own edit back to a quaternion and dispatching `setRotation`.
+ * Derive everything the UI renders from the chain model (SPEC §4 Phase 3).
+ *
+ * Two things come out of one pure pass:
+ *  - the SELECTED element's five representations, which the panels edit; and
+ *  - the COMPOSED chain result T1·T2·…·Tn (only the enabled elements, each
+ *    inverted if flagged), which drives the 3D view, the probe mapping, and the
+ *    composed-result readout — plus the cumulative intermediate frames.
  *
  * Passive display (SPEC §2): a passive rotation is the inverse of the active one,
- * so when `passive` is set we derive every view from the conjugate quaternion
- * (unit-quaternion inverse). That transposes the matrix and negates the angles —
- * exactly "transposes display only", applied consistently to all representations.
+ * so when `passive` is set every ROTATION view derives from the conjugate
+ * quaternion (transpose display only). Translation is not a rotation and is shown
+ * as-is. Applied identically to the selected element and the composed result.
  *
- * Assumes the hub is a unit quaternion; dispatchers maintain that invariant
- * (a user's non-unit draft stays panel-local until normalized).
+ * A rotation may be a NON-UNIT draft (the quaternion panel allows it). The
+ * geometric views are only defined for a unit rotation, so we normalize
+ * EXPLICITLY here — app-layer display repair surfaced beside the panel's non-unit
+ * warning, never a silent fix inside a rigid-kit conversion (CLAUDE.md rule 3).
  */
 
 import {
   canonicalize,
+  composeChain,
   conjugate,
+  gimbalProximity,
   IDENTITY_QUATERNION,
+  invertTransform,
   isUnit,
   normalize,
   quatNorm,
-  rotateVector,
-  vec3,
   quaternionToAxisAngle,
   quaternionToEuler,
   quaternionToMatrix,
   quaternionToRotationVector,
-  gimbalProximity,
+  rotateVector,
+  transform,
+  vec3,
   type AxisAngle,
   type EulerAngles,
   type Quaternion,
   type RotationVector,
   type RotMat3,
+  type Transform,
   type Vec3,
 } from 'rigid-kit';
-import type { AppState } from './state/app-state.js';
+import { selectedElement, type AppState } from './state/app-state.js';
 
 /**
  * Warn when `gimbalProximity` (0 = clear, 1 = exactly at lock) reaches this. At
@@ -43,21 +52,8 @@ import type { AppState } from './state/app-state.js';
  */
 export const GIMBAL_WARN_PROXIMITY = 0.999;
 
-/** All representations of the current rotation, ready for display. */
-export interface DerivedViews {
-  /** Canonicalized quaternion (w ≥ 0), the display form of the hub as entered. */
-  readonly quaternion: Quaternion;
-  /** Norm of the (passive-adjusted) hub quaternion — 1 for a valid rotation. */
-  readonly quaternionNorm: number;
-  /** Whether the hub is unit length (drives the panel's non-unit warning). */
-  readonly quaternionIsUnit: boolean;
-  /**
-   * The unit rotation actually visualized/converted: the (passive-adjusted) hub
-   * normalized to unit length. Distinct from `quaternion`, which is the raw
-   * display form and may be non-unit while the user is mid-edit. Feed this to the
-   * 3D view so it matches the matrix/Euler/axis-angle forms, which derive from it.
-   */
-  readonly orientation: Quaternion;
+/** The five rotation representations of one unit orientation, ready for display. */
+export interface RotationReps {
   readonly matrix: RotMat3;
   readonly euler: EulerAngles;
   readonly axisAngle: AxisAngle;
@@ -66,10 +62,51 @@ export interface DerivedViews {
   readonly gimbalProximity: number;
   /** True when the Euler output is close enough to gimbal lock to be unreliable. */
   readonly nearGimbalLock: boolean;
+}
+
+/** The composed chain result T1·…·Tn and its display forms (SPEC §4 Phase 3). */
+export interface ComposedResult extends RotationReps {
+  /** The raw composed rigid transform (active, not passive-adjusted). */
+  readonly transform: Transform;
+  /** Unit rotation actually visualized (passive-adjusted): feed to the 3D view. */
+  readonly orientation: Quaternion;
+  /** Composed translation (last column of the 4×4); shown as-is under passive. */
+  readonly translation: Vec3;
+  /** Canonicalized (w ≥ 0) composed rotation for the quaternion readout. */
+  readonly quaternion: Quaternion;
+}
+
+/** All representations of the current state, ready for display. */
+export interface DerivedViews {
+  /** Canonicalized selected-element quaternion (w ≥ 0), the display form as entered. */
+  readonly quaternion: Quaternion;
+  /** Norm of the (passive-adjusted) selected quaternion — 1 for a valid rotation. */
+  readonly quaternionNorm: number;
+  /** Whether the selected quaternion is unit length (drives the non-unit warning). */
+  readonly quaternionIsUnit: boolean;
+  /** True when canonicalization flipped the shown sign (drives the "w ≥ 0" note). */
+  readonly quaternionSignFlipped: boolean;
+  /** The selected element's unit orientation (passive-adjusted). */
+  readonly orientation: Quaternion;
+  readonly matrix: RotMat3;
+  readonly euler: EulerAngles;
+  readonly axisAngle: AxisAngle;
+  readonly rotationVector: RotationVector;
+  readonly gimbalProximity: number;
+  readonly nearGimbalLock: boolean;
+  /** The selected element's translation (edited by the translation panel). */
+  readonly translation: Vec3;
   /** The probe direction normalized to unit length (the 3D arrow's direction). */
   readonly probeUnit: Vec3;
-  /** Where the rotation sends the unit probe: R · probeUnit (SPEC §4 Phase 2). */
+  /** Where the COMPOSED rotation sends the unit probe (SPEC §4 Phase 2). */
   readonly probeMapped: Vec3;
+  /** The composed chain result (3D view + result readout). */
+  readonly composed: ComposedResult;
+  /**
+   * Cumulative composed frames after each enabled element (post-invert), in chain
+   * order — the intermediate frames the 3D scene can draw (SPEC §4 Phase 3).
+   */
+  readonly frames: readonly Transform[];
 }
 
 /** Unit-length copy of a vector; falls back to +X for a zero vector (no direction). */
@@ -78,42 +115,84 @@ function unitOrX(v: Vec3): Vec3 {
   return n > 0 ? vec3(v.x / n, v.y / n, v.z / n) : vec3(1, 0, 0);
 }
 
+/** Explicit display repair: unit rotation (identity for a zero-norm draft). */
+function unitOrIdentity(q: Quaternion): Quaternion {
+  const n = quatNorm(q);
+  return n > 0 ? normalize(q) : IDENTITY_QUATERNION;
+}
+
+/** A transform with its rotation normalized, so composition/inversion stay valid. */
+function unitTransform(t: Transform): Transform {
+  return transform(unitOrIdentity(t.rotation), t.translation);
+}
+
+/** The five rotation representations of an already-unit orientation. */
+function rotationReps(
+  unitShown: Quaternion,
+  order: AppState['eulerOrder'],
+  frame: AppState['eulerFrame'],
+): RotationReps {
+  const euler = quaternionToEuler(unitShown, order, frame);
+  const proximity = gimbalProximity(euler);
+  return {
+    matrix: quaternionToMatrix(unitShown),
+    euler,
+    axisAngle: quaternionToAxisAngle(unitShown),
+    rotationVector: quaternionToRotationVector(unitShown),
+    gimbalProximity: proximity,
+    nearGimbalLock: proximity >= GIMBAL_WARN_PROXIMITY,
+  };
+}
+
 /**
- * Compute all representation views for the given state. Pure: same state in,
- * same views out; no mutation of the hub.
- *
- * The hub may hold a user's NON-UNIT quaternion draft. The matrix/Euler/
- * axis-angle/rotation-vector forms are only defined for a unit quaternion, so we
- * normalize EXPLICITLY here (app-layer display repair, surfaced alongside a
- * non-unit warning in the quaternion panel) before converting — this is not a
- * silent fix inside a rigid-kit conversion (CLAUDE.md rule 3). A degenerate
- * zero-norm hub falls back to identity for the geometric views; the norm warning
- * still tells the user their input was invalid.
+ * Compute all views for the given state. Pure: same state in, same views out.
  */
 export function deriveViews(state: AppState): DerivedViews {
-  // The rotation actually shown: active as stored, passive = its inverse.
-  const shown = state.passive ? conjugate(state.rotation) : state.rotation;
+  // --- selected element (what the panels edit) -------------------------------
+  const sel = selectedElement(state);
+  const rawRot = sel.transform.rotation;
+  const norm = quatNorm(rawRot);
+  const shownRaw = state.passive ? conjugate(rawRot) : rawRot;
+  const unitSel = unitOrIdentity(shownRaw);
+  const selReps = rotationReps(unitSel, state.eulerOrder, state.eulerFrame);
 
-  const norm = quatNorm(shown);
-  const unit = norm > 0 ? normalize(shown) : IDENTITY_QUATERNION;
+  // --- composed chain result (3D view, probe, readout) -----------------------
+  const resolved = state.chain
+    .filter((e) => e.enabled)
+    .map((e) => {
+      const u = unitTransform(e.transform);
+      return e.inverted ? invertTransform(u) : u;
+    });
+  const composedT = composeChain(resolved);
+  const cShownRaw = state.passive ? conjugate(composedT.rotation) : composedT.rotation;
+  const cUnit = unitOrIdentity(cShownRaw);
+  const cReps = rotationReps(cUnit, state.eulerOrder, state.eulerFrame);
 
-  const euler = quaternionToEuler(unit, state.eulerOrder, state.eulerFrame);
-  const proximity = gimbalProximity(euler);
+  // Cumulative intermediate frames: composition of the first k resolved elements.
+  const frames: Transform[] = [];
+  for (let k = 1; k <= resolved.length; k++) {
+    frames.push(composeChain(resolved.slice(0, k)));
+  }
 
   const probeUnit = unitOrX(state.probe);
 
   return {
-    quaternion: canonicalize(shown),
+    quaternion: canonicalize(shownRaw),
     quaternionNorm: norm,
-    quaternionIsUnit: isUnit(shown, 1e-9),
-    orientation: unit,
-    matrix: quaternionToMatrix(unit),
-    euler,
-    axisAngle: quaternionToAxisAngle(unit),
-    rotationVector: quaternionToRotationVector(unit),
-    gimbalProximity: proximity,
-    nearGimbalLock: proximity >= GIMBAL_WARN_PROXIMITY,
+    quaternionIsUnit: isUnit(rawRot, 1e-9),
+    quaternionSignFlipped: shownRaw.w < 0,
+    orientation: unitSel,
+    ...selReps,
+    translation: sel.transform.translation,
     probeUnit,
-    probeMapped: rotateVector(unit, probeUnit),
+    probeMapped: rotateVector(cUnit, probeUnit),
+    composed: {
+      transform: composedT,
+      orientation: cUnit,
+      translation: composedT.translation,
+      quaternion: canonicalize(cShownRaw),
+      ...cReps,
+    },
+    frames,
   };
 }

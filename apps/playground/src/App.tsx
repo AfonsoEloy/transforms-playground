@@ -6,17 +6,19 @@
  */
 
 import { useEffect, useState } from 'react';
-import { IDENTITY_QUATERNION } from 'rigid-kit';
 import { deriveViews } from './derive.js';
 import { MAX_PRECISION, MIN_PRECISION, type AngleUnit, type QuatOrder } from './state/app-state.js';
 import { useUrlState } from './state/use-url-state.js';
 import { Viewport } from './components/Viewport.js';
 import { ViewControls } from './components/ViewControls.js';
+import { ChainPanel } from './components/ChainPanel.js';
+import { ChainResult } from './components/ChainResult.js';
 import { QuaternionPanel } from './components/QuaternionPanel.js';
 import { MatrixPanel } from './components/MatrixPanel.js';
 import { EulerPanel } from './components/EulerPanel.js';
 import { AxisAnglePanel } from './components/AxisAnglePanel.js';
 import { RotationVectorPanel } from './components/RotationVectorPanel.js';
+import { TranslationPanel } from './components/TranslationPanel.js';
 
 export function App() {
   const [state, dispatch] = useUrlState();
@@ -117,11 +119,8 @@ export function App() {
         </label>
 
         <div className="control-actions">
-          <button
-            type="button"
-            onClick={() => dispatch({ type: 'setRotation', rotation: IDENTITY_QUATERNION })}
-          >
-            Reset
+          <button type="button" onClick={() => dispatch({ type: 'resetSelected' })}>
+            Reset element
           </button>
           <button type="button" onClick={copyLink}>
             {linkCopied ? 'Link copied' : 'Copy link'}
@@ -130,10 +129,10 @@ export function App() {
       </section>
 
       <Viewport
-        rotation={views.orientation}
+        rotation={views.composed.orientation}
         probe={views.probeUnit}
-        axis={views.axisAngle.axis}
-        angle={views.axisAngle.angle}
+        axis={views.composed.axisAngle.axis}
+        angle={views.composed.axisAngle.angle}
         showAxis={state.showAxis}
         sweep={sweep}
       />
@@ -148,12 +147,17 @@ export function App() {
         onPlay={play}
       />
 
+      <ChainPanel state={state} dispatch={dispatch} />
+      <ChainResult state={state} views={views} />
+
+      <p className="edit-hint">Editing the selected element (highlighted above):</p>
       <div className="panels">
         <QuaternionPanel state={state} views={views} dispatch={dispatch} />
         <MatrixPanel state={state} views={views} dispatch={dispatch} />
         <EulerPanel state={state} views={views} dispatch={dispatch} />
         <AxisAnglePanel state={state} views={views} dispatch={dispatch} />
         <RotationVectorPanel state={state} views={views} dispatch={dispatch} />
+        <TranslationPanel state={state} views={views} dispatch={dispatch} />
       </div>
     </main>
   );

@@ -5,16 +5,30 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { IDENTITY_QUATERNION, IDENTITY_ROTMAT3, quat, vec3 } from 'rigid-kit';
+import {
+  IDENTITY_QUATERNION,
+  IDENTITY_ROTMAT3,
+  quat,
+  transform,
+  vec3,
+  type Quaternion,
+} from 'rigid-kit';
 import { deriveViews } from '../src/derive.js';
-import { INITIAL_STATE, type AppState } from '../src/state/app-state.js';
+import { INITIAL_STATE, makeElement, type AppState } from '../src/state/app-state.js';
 
 const SQRT1_2 = Math.SQRT1_2;
 /** +90° about Z as a unit quaternion. */
 const zHalf = quat(SQRT1_2, 0, 0, SQRT1_2);
 
-function stateWith(overrides: Partial<AppState>): AppState {
-  return { ...INITIAL_STATE, ...overrides };
+type Overrides = Partial<Omit<AppState, 'chain' | 'selectedId'>> & { rotation?: Quaternion };
+
+/** Build a state whose single selected element carries `rotation` (identity translation). */
+function stateWith(overrides: Overrides): AppState {
+  const { rotation, ...rest } = overrides;
+  const chain = rotation
+    ? [makeElement('0', transform(rotation, vec3(0, 0, 0)))]
+    : INITIAL_STATE.chain;
+  return { ...INITIAL_STATE, ...rest, chain, selectedId: '0' };
 }
 
 function expectClose(a: number, b: number, tol = 1e-12): void {
@@ -119,5 +133,67 @@ describe('deriveViews — gimbal lock flag', () => {
     );
     expect(v.nearGimbalLock).toBe(true);
     expect(v.gimbalProximity).toBeGreaterThan(0.999);
+  });
+});
+
+describe('deriveViews — composed chain result', () => {
+  const chainState = (
+    els: readonly {
+      rotation?: Quaternion;
+      t?: [number, number, number];
+      enabled?: boolean;
+      inverted?: boolean;
+    }[],
+    overrides: Partial<AppState> = {},
+  ): AppState => ({
+    ...INITIAL_STATE,
+    ...overrides,
+    chain: els.map((e, i) =>
+      makeElement(
+        String(i),
+        transform(e.rotation ?? IDENTITY_QUATERNION, vec3(...(e.t ?? [0, 0, 0]))),
+        e.enabled ?? true,
+        e.inverted ?? false,
+      ),
+    ),
+    selectedId: '0',
+  });
+
+  it('composes two 90°-about-Z rotations into 180° about Z', () => {
+    const v = deriveViews(chainState([{ rotation: zHalf }, { rotation: zHalf }]));
+    // z-component of a 180° about Z is 1, w is 0.
+    expectClose(v.composed.quaternion.w, 0);
+    expectClose(Math.abs(v.composed.quaternion.z), 1);
+    // Selected element is still just T1 (90° about Z).
+    expectClose(v.axisAngle.angle, Math.PI / 2);
+  });
+
+  it('accumulates translation through rotation: T(rot90Z)·T(shift+X) shifts by +Y', () => {
+    // T1 = rot 90° about Z, T2 = translate +X. Apply T2 first, then T1.
+    const v = deriveViews(chainState([{ rotation: zHalf }, { t: [1, 0, 0] }]));
+    expectClose(v.composed.translation.x, 0);
+    expectClose(v.composed.translation.y, 1);
+    expectClose(v.composed.translation.z, 0);
+  });
+
+  it('a disabled element drops out of the product', () => {
+    const withBoth = deriveViews(chainState([{ rotation: zHalf }, { rotation: zHalf }]));
+    const withOne = deriveViews(
+      chainState([{ rotation: zHalf }, { rotation: zHalf, enabled: false }]),
+    );
+    expectClose(withBoth.composed.axisAngle.angle, Math.PI); // 180°
+    expectClose(withOne.composed.axisAngle.angle, Math.PI / 2); // 90°
+  });
+
+  it('an inverted element cancels its twin', () => {
+    const v = deriveViews(chainState([{ rotation: zHalf }, { rotation: zHalf, inverted: true }]));
+    expectClose(v.composed.axisAngle.angle, 0); // 90° · (90°)⁻¹ = identity
+  });
+
+  it('exposes one cumulative frame per enabled element', () => {
+    const v = deriveViews(
+      chainState([{ rotation: zHalf }, { rotation: zHalf, enabled: false }, { t: [2, 0, 0] }]),
+    );
+    expect(v.frames.length).toBe(2); // two enabled elements
   });
 });

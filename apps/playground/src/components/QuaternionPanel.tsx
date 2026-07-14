@@ -55,7 +55,9 @@ export function QuaternionPanel({ state, views, dispatch }: Props) {
           </button>
         </p>
       )}
-      {state.rotation.w < 0 && <p className="note">Sign canonicalized to w ≥ 0 for display.</p>}
+      {views.quaternionSignFlipped && (
+        <p className="note">Sign canonicalized to w ≥ 0 for display.</p>
+      )}
     </>
   );
 
