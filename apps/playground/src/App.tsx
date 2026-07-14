@@ -13,6 +13,7 @@ import { Viewport } from './components/Viewport.js';
 import { ViewControls } from './components/ViewControls.js';
 import { ChainPanel } from './components/ChainPanel.js';
 import { ChainResult } from './components/ChainResult.js';
+import { ChainExport } from './components/ChainExport.js';
 import { QuaternionPanel } from './components/QuaternionPanel.js';
 import { MatrixPanel } from './components/MatrixPanel.js';
 import { EulerPanel } from './components/EulerPanel.js';
@@ -153,6 +154,7 @@ export function App() {
 
       <ChainPanel state={state} dispatch={dispatch} />
       <ChainResult state={state} views={views} />
+      <ChainExport state={state} views={views} />
 
       <p className="edit-hint">Editing the selected element (highlighted above):</p>
       <div className="panels">

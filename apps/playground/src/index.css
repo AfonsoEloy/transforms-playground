@@ -452,3 +452,18 @@ button:disabled {
 .import-error {
   color: var(--warn);
 }
+
+/* Chain code export (SPEC §4 Phase 4). */
+.export-code {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  white-space: pre;
+}
