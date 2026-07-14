@@ -51,6 +51,27 @@ describe('deriveViews — known answers', () => {
   });
 });
 
+describe('deriveViews — non-unit hub', () => {
+  it('normalizes for the geometric views but reports the raw norm', () => {
+    // 2·(90° about Z): same rotation, norm 2.
+    const scaled = quat(2 * SQRT1_2, 0, 0, 2 * SQRT1_2);
+    const unitViews = deriveViews(stateWith({ rotation: zHalf }));
+    const v = deriveViews(stateWith({ rotation: scaled }));
+    expectClose(v.quaternionNorm, 2);
+    expect(v.quaternionIsUnit).toBe(false);
+    // Matrix (and every geometric view) matches the normalized rotation.
+    expect(v.matrix).toEqual(unitViews.matrix);
+    expectClose(v.axisAngle.angle, Math.PI / 2);
+  });
+
+  it('does not throw on a zero-norm hub (falls back to identity views)', () => {
+    const v = deriveViews(stateWith({ rotation: quat(0, 0, 0, 0) }));
+    expect(v.quaternionNorm).toBe(0);
+    expect(v.quaternionIsUnit).toBe(false);
+    expect(v.matrix).toEqual(IDENTITY_ROTMAT3);
+  });
+});
+
 describe('deriveViews — passive display is the inverse rotation', () => {
   it('passive view of +90° about Z is −90° about Z (matrix transposed)', () => {
     const active = deriveViews(stateWith({ rotation: zHalf, passive: false }));

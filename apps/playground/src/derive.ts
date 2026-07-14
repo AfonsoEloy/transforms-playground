@@ -16,6 +16,10 @@
 import {
   canonicalize,
   conjugate,
+  IDENTITY_QUATERNION,
+  isUnit,
+  normalize,
+  quatNorm,
   quaternionToAxisAngle,
   quaternionToEuler,
   quaternionToMatrix,
@@ -38,8 +42,12 @@ export const GIMBAL_WARN_PROXIMITY = 0.999;
 
 /** All representations of the current rotation, ready for display. */
 export interface DerivedViews {
-  /** Canonicalized quaternion (w ≥ 0), the display form of the hub. */
+  /** Canonicalized quaternion (w ≥ 0), the display form of the hub as entered. */
   readonly quaternion: Quaternion;
+  /** Norm of the (passive-adjusted) hub quaternion — 1 for a valid rotation. */
+  readonly quaternionNorm: number;
+  /** Whether the hub is unit length (drives the panel's non-unit warning). */
+  readonly quaternionIsUnit: boolean;
   readonly matrix: RotMat3;
   readonly euler: EulerAngles;
   readonly axisAngle: AxisAngle;
@@ -53,20 +61,33 @@ export interface DerivedViews {
 /**
  * Compute all representation views for the given state. Pure: same state in,
  * same views out; no mutation of the hub.
+ *
+ * The hub may hold a user's NON-UNIT quaternion draft. The matrix/Euler/
+ * axis-angle/rotation-vector forms are only defined for a unit quaternion, so we
+ * normalize EXPLICITLY here (app-layer display repair, surfaced alongside a
+ * non-unit warning in the quaternion panel) before converting — this is not a
+ * silent fix inside a rigid-kit conversion (CLAUDE.md rule 3). A degenerate
+ * zero-norm hub falls back to identity for the geometric views; the norm warning
+ * still tells the user their input was invalid.
  */
 export function deriveViews(state: AppState): DerivedViews {
   // The rotation actually shown: active as stored, passive = its inverse.
   const shown = state.passive ? conjugate(state.rotation) : state.rotation;
 
-  const euler = quaternionToEuler(shown, state.eulerOrder, state.eulerFrame);
+  const norm = quatNorm(shown);
+  const unit = norm > 0 ? normalize(shown) : IDENTITY_QUATERNION;
+
+  const euler = quaternionToEuler(unit, state.eulerOrder, state.eulerFrame);
   const proximity = gimbalProximity(euler);
 
   return {
     quaternion: canonicalize(shown),
-    matrix: quaternionToMatrix(shown),
+    quaternionNorm: norm,
+    quaternionIsUnit: isUnit(shown, 1e-9),
+    matrix: quaternionToMatrix(unit),
     euler,
-    axisAngle: quaternionToAxisAngle(shown),
-    rotationVector: quaternionToRotationVector(shown),
+    axisAngle: quaternionToAxisAngle(unit),
+    rotationVector: quaternionToRotationVector(unit),
     gimbalProximity: proximity,
     nearGimbalLock: proximity >= GIMBAL_WARN_PROXIMITY,
   };
