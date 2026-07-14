@@ -11,7 +11,7 @@
  * rather than throwing, so a hand-edited or truncated URL still loads.
  */
 
-import { EULER_ORDERS, quat, type EulerFrame, type EulerOrder } from 'rigid-kit';
+import { EULER_ORDERS, quat, vec3, type EulerFrame, type EulerOrder } from 'rigid-kit';
 import {
   clampPrecision,
   INITIAL_STATE,
@@ -35,6 +35,9 @@ export function serializeState(state: AppState): string {
   params.set('frame', state.eulerFrame);
   params.set('prec', String(state.precision));
   params.set('passive', state.passive ? '1' : '0');
+  const p = state.probe;
+  params.set('probe', `${p.x},${p.y},${p.z}`);
+  params.set('axis', state.showAxis ? '1' : '0');
   // URLSearchParams percent-encodes commas; decode them back for readability —
   // commas are safe in a fragment and keep the quaternion legible in the bar.
   return params.toString().replace(/%2C/gi, ',');
@@ -56,6 +59,17 @@ function parseQuat(raw: string | null): AppState['rotation'] | null {
   return quat(w, x, y, z);
 }
 
+/** Parse the three comma-separated probe components; null if malformed. */
+function parseProbe(raw: string | null): AppState['probe'] | null {
+  if (raw === null) return null;
+  const parts = raw.split(',');
+  if (parts.length !== 3) return null;
+  const nums = parts.map(Number);
+  if (nums.some((n) => !Number.isFinite(n))) return null;
+  const [x, y, z] = nums as [number, number, number];
+  return vec3(x, y, z);
+}
+
 /**
  * Parse a hash string (with or without a leading `#`) into an AppState.
  * Any field that is absent or malformed defaults to INITIAL_STATE.
@@ -65,6 +79,9 @@ export function parseState(hash: string): AppState {
   const params = new URLSearchParams(raw);
 
   const rotation = parseQuat(params.get('q')) ?? INITIAL_STATE.rotation;
+  const probe = parseProbe(params.get('probe')) ?? INITIAL_STATE.probe;
+  const axisRaw = params.get('axis');
+  const showAxis = axisRaw === null ? INITIAL_STATE.showAxis : axisRaw === '1';
   const precRaw = params.get('prec');
   const precision =
     precRaw !== null && Number.isFinite(Number(precRaw))
@@ -79,5 +96,7 @@ export function parseState(hash: string): AppState {
     eulerFrame: oneOf(params.get('frame'), EULER_FRAMES, INITIAL_STATE.eulerFrame),
     precision,
     passive: params.get('passive') === '1',
+    probe,
+    showAxis,
   };
 }

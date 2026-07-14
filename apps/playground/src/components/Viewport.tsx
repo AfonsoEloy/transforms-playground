@@ -1,38 +1,54 @@
 /**
  * The 3D visualization (SPEC §4 Phase 2): a Z-up world with a static reference
- * triad and a live rotated triad, orbit camera, and a subtle ground grid. The
- * rotated triad reflects the current rotation and updates the same frame the
- * inputs change (SPEC §1 "instant feedback").
+ * triad and a live rotated triad, the rotation axis, and a probe vector plus
+ * where the rotation sends it. Orbit camera, subtle ground grid. Everything
+ * updates the same frame the inputs change (SPEC §1 "instant feedback").
  *
  * Lifecycle discipline (CLAUDE.md): the renderer, scene, camera, controls and
- * both triads are created exactly ONCE when the component mounts and then
- * mutated — the per-rotation effect only writes the rotated group's quaternion,
- * it never rebuilds geometry. All Three.js↔rigid-kit conversion goes through
+ * all markers are created exactly ONCE on mount and then MUTATED. The render
+ * loop reads the latest inputs from a ref and re-points/re-scales the existing
+ * objects each frame — no geometry is rebuilt on input changes, and there is no
+ * effect-dependency churn. All Three.js↔rigid-kit conversion goes through
  * `adapters/`, and the Z-up correction lives solely in `createWorldRoot`.
+ *
+ * Sweep (0→1) animates the shown rotation from identity to the target via slerp;
+ * it affects only this view (it is ephemeral, not part of the shareable state).
  */
 
 import { useEffect, useRef } from 'react';
-import { Color, GridHelper, PerspectiveCamera, Scene, WebGLRenderer, type Group } from 'three';
+import {
+  Color,
+  GridHelper,
+  PerspectiveCamera,
+  Quaternion as ThreeQuaternion,
+  Scene,
+  Vector3,
+  WebGLRenderer,
+} from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { Quaternion } from 'rigid-kit';
-import { applyToThreeQuaternion } from '../adapters/quaternion.js';
+import type { Quaternion, Vec3 } from 'rigid-kit';
+import { applyToThreeQuaternion, applyToThreeVec3 } from '../adapters/quaternion.js';
 import { createWorldRoot } from '../adapters/scene-frame.js';
 import { buildTriad } from '../adapters/triad.js';
+import { buildArrow, MARKER_COLORS } from '../adapters/markers.js';
 
-/** Handles retained across renders so effects mutate the scene instead of rebuilding it. */
-interface SceneHandles {
-  readonly renderer: WebGLRenderer;
-  readonly scene: Scene;
-  readonly camera: PerspectiveCamera;
-  readonly controls: OrbitControls;
-  readonly rotatedFrame: Group;
-  readonly resizeObserver: ResizeObserver;
+/** The live inputs the render loop reads each frame (mutated in place, no re-subscribe). */
+interface ViewInputs {
+  rotation: Quaternion;
+  probe: Vec3;
+  axis: Vec3;
+  angle: number;
+  showAxis: boolean;
+  sweep: number;
 }
 
 const BACKGROUND_LIGHT = new Color('#f4f5f7');
 const BACKGROUND_DARK = new Color('#141517');
 const GRID_LINE = new Color('#c8ccd2');
 const GRID_LINE_DARK = new Color('#2a2d31');
+
+/** Below this rotation angle (rad) the axis is undefined, so hide the axis arrow. */
+const AXIS_MIN_ANGLE = 1e-6;
 
 function prefersDark(): boolean {
   return (
@@ -43,13 +59,39 @@ function prefersDark(): boolean {
 }
 
 export interface ViewportProps {
-  /** The rotation to visualize (the passive-adjusted, unit quaternion the panels show). */
+  /** The target rotation to visualize (passive-adjusted, unit quaternion the panels show). */
   readonly rotation: Quaternion;
+  /** Unit probe direction (views.probeUnit). */
+  readonly probe: Vec3;
+  /** Rotation axis (views.axisAngle.axis) — meaningful only when `angle` > 0. */
+  readonly axis: Vec3;
+  /** Rotation angle in radians (views.axisAngle.angle). */
+  readonly angle: number;
+  /** Whether to draw the rotation-axis arrow. */
+  readonly showAxis: boolean;
+  /** Animation scrub in [0,1]: 0 = identity, 1 = the full rotation. */
+  readonly sweep: number;
 }
 
-export function Viewport({ rotation }: ViewportProps): JSX.Element {
+export function Viewport(props: ViewportProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const handlesRef = useRef<SceneHandles | null>(null);
+  // Latest inputs for the render loop; updated every render, read every frame.
+  const inputsRef = useRef<ViewInputs>({
+    rotation: props.rotation,
+    probe: props.probe,
+    axis: props.axis,
+    angle: props.angle,
+    showAxis: props.showAxis,
+    sweep: props.sweep,
+  });
+  inputsRef.current = {
+    rotation: props.rotation,
+    probe: props.probe,
+    axis: props.axis,
+    angle: props.angle,
+    showAxis: props.showAxis,
+    sweep: props.sweep,
+  };
 
   // Build the scene once on mount; tear it down fully on unmount.
   useEffect(() => {
@@ -91,12 +133,8 @@ export function Viewport({ rotation }: ViewportProps): JSX.Element {
 
     // Ground grid in our world XY plane (Z = 0). GridHelper is authored in its
     // local XZ plane, so tilt it into XY.
-    const grid = new GridHelper(
-      6,
-      12,
-      dark ? GRID_LINE_DARK : GRID_LINE,
-      dark ? GRID_LINE_DARK : GRID_LINE,
-    );
+    const gridColor = dark ? GRID_LINE_DARK : GRID_LINE;
+    const grid = new GridHelper(6, 12, gridColor, gridColor);
     grid.rotation.x = Math.PI / 2;
     worldRoot.add(grid);
 
@@ -107,7 +145,40 @@ export function Viewport({ rotation }: ViewportProps): JSX.Element {
     const rotatedFrame = buildTriad({ length: 1.2, opacity: 1.0, labels: false });
     worldRoot.add(rotatedFrame);
 
+    // Markers: probe direction, where it maps to, and the rotation axis.
+    const probeArrow = buildArrow(MARKER_COLORS.probe, 1.35);
+    const mappedArrow = buildArrow(MARKER_COLORS.mapped, 1.35, 0.85);
+    const axisArrow = buildArrow(MARKER_COLORS.axis, 1.5, 0.9);
+    worldRoot.add(probeArrow, mappedArrow, axisArrow);
+
+    // Reusable scratch objects so the frame loop allocates nothing.
+    const identityQuat = new ThreeQuaternion();
+    const targetQuat = new ThreeQuaternion();
+    const scratch = new Vector3();
+
+    function applyInputs(): void {
+      const v = inputsRef.current;
+      // Shown rotation = slerp(identity → target, sweep); sweep = 1 is the full rotation.
+      applyToThreeQuaternion(v.rotation, targetQuat);
+      rotatedFrame.quaternion.slerpQuaternions(identityQuat, targetQuat, v.sweep);
+
+      // Probe arrow points along the (unit) probe direction.
+      probeArrow.setDirection(applyToThreeVec3(v.probe, scratch).normalize());
+      // Mapped arrow: the probe carried by the currently-shown (swept) rotation.
+      applyToThreeVec3(v.probe, scratch).applyQuaternion(rotatedFrame.quaternion);
+      mappedArrow.setDirection(scratch.normalize());
+
+      // Axis arrow: only meaningful when there is a rotation.
+      if (v.showAxis && v.angle > AXIS_MIN_ANGLE) {
+        axisArrow.visible = true;
+        axisArrow.setDirection(applyToThreeVec3(v.axis, scratch).normalize());
+      } else {
+        axisArrow.visible = false;
+      }
+    }
+
     renderer.setAnimationLoop(() => {
+      applyInputs();
       controls.update();
       renderer.render(scene, camera);
     });
@@ -120,8 +191,6 @@ export function Viewport({ rotation }: ViewportProps): JSX.Element {
       renderer.setSize(w, h);
     });
     resizeObserver.observe(container);
-
-    handlesRef.current = { renderer, scene, camera, controls, rotatedFrame, resizeObserver };
 
     return () => {
       resizeObserver.disconnect();
@@ -140,16 +209,8 @@ export function Viewport({ rotation }: ViewportProps): JSX.Element {
       });
       renderer.dispose();
       renderer.domElement.remove();
-      handlesRef.current = null;
     };
   }, []);
-
-  // Reflect the current rotation onto the rotated frame — the only per-update work.
-  useEffect(() => {
-    const handles = handlesRef.current;
-    if (!handles) return;
-    applyToThreeQuaternion(rotation, handles.rotatedFrame.quaternion);
-  }, [rotation]);
 
   return (
     <div className="viewport" ref={containerRef} role="img" aria-label="3D view of the rotation">

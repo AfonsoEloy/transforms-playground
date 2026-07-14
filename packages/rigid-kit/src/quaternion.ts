@@ -3,7 +3,7 @@
  * Convention: active rotations, right-handed; see types.ts.
  */
 
-import { quat, type Quaternion } from './types.js';
+import { quat, vec3, type Quaternion, type Vec3 } from './types.js';
 import { ZeroMagnitudeError } from './errors.js';
 
 /** Euclidean norm ‖q‖ = √(w²+x²+y²+z²). */
@@ -35,6 +35,33 @@ export function multiply(a: Quaternion, b: Quaternion): Quaternion {
  */
 export function conjugate(q: Quaternion): Quaternion {
   return quat(q.w, -q.x, -q.y, -q.z);
+}
+
+/**
+ * Actively rotate a vector by a quaternion: v' = R v (SPEC §2 convention —
+ * active rotation, right-handed, column vector). Uses the standard sandwich
+ * product q ⊗ (0,v) ⊗ q* in its expanded, cross-product form:
+ *   t = 2 (q_vec × v);  v' = v + q.w t + q_vec × t
+ * which avoids building intermediate quaternions.
+ *
+ * ASSUMES a unit quaternion (like the conversion functions). For a non-unit q
+ * the result is scaled by ‖q‖²; this function does NOT normalize (CLAUDE.md
+ * rule 3) — the caller normalizes explicitly when needed.
+ */
+export function rotateVector(q: Quaternion, v: Vec3): Vec3 {
+  // q_vec × v
+  const cx = q.y * v.z - q.z * v.y;
+  const cy = q.z * v.x - q.x * v.z;
+  const cz = q.x * v.y - q.y * v.x;
+  // t = 2 (q_vec × v)
+  const tx = 2 * cx;
+  const ty = 2 * cy;
+  const tz = 2 * cz;
+  // q_vec × t
+  const ctx = q.y * tz - q.z * ty;
+  const cty = q.z * tx - q.x * tz;
+  const ctz = q.x * ty - q.y * tx;
+  return vec3(v.x + q.w * tx + ctx, v.y + q.w * ty + cty, v.z + q.w * tz + ctz);
 }
 
 /**

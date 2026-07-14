@@ -20,6 +20,8 @@ import {
   isUnit,
   normalize,
   quatNorm,
+  rotateVector,
+  vec3,
   quaternionToAxisAngle,
   quaternionToEuler,
   quaternionToMatrix,
@@ -30,6 +32,7 @@ import {
   type Quaternion,
   type RotationVector,
   type RotMat3,
+  type Vec3,
 } from 'rigid-kit';
 import type { AppState } from './state/app-state.js';
 
@@ -63,6 +66,16 @@ export interface DerivedViews {
   readonly gimbalProximity: number;
   /** True when the Euler output is close enough to gimbal lock to be unreliable. */
   readonly nearGimbalLock: boolean;
+  /** The probe direction normalized to unit length (the 3D arrow's direction). */
+  readonly probeUnit: Vec3;
+  /** Where the rotation sends the unit probe: R · probeUnit (SPEC §4 Phase 2). */
+  readonly probeMapped: Vec3;
+}
+
+/** Unit-length copy of a vector; falls back to +X for a zero vector (no direction). */
+function unitOrX(v: Vec3): Vec3 {
+  const n = Math.hypot(v.x, v.y, v.z);
+  return n > 0 ? vec3(v.x / n, v.y / n, v.z / n) : vec3(1, 0, 0);
 }
 
 /**
@@ -87,6 +100,8 @@ export function deriveViews(state: AppState): DerivedViews {
   const euler = quaternionToEuler(unit, state.eulerOrder, state.eulerFrame);
   const proximity = gimbalProximity(euler);
 
+  const probeUnit = unitOrX(state.probe);
+
   return {
     quaternion: canonicalize(shown),
     quaternionNorm: norm,
@@ -98,5 +113,7 @@ export function deriveViews(state: AppState): DerivedViews {
     rotationVector: quaternionToRotationVector(unit),
     gimbalProximity: proximity,
     nearGimbalLock: proximity >= GIMBAL_WARN_PROXIMITY,
+    probeUnit,
+    probeMapped: rotateVector(unit, probeUnit),
   };
 }

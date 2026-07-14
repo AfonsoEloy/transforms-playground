@@ -5,12 +5,13 @@
  * editing any representation updates all the others live (SPEC §4 Phase 1).
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { IDENTITY_QUATERNION } from 'rigid-kit';
 import { deriveViews } from './derive.js';
 import { MAX_PRECISION, MIN_PRECISION, type AngleUnit, type QuatOrder } from './state/app-state.js';
 import { useUrlState } from './state/use-url-state.js';
 import { Viewport } from './components/Viewport.js';
+import { ViewControls } from './components/ViewControls.js';
 import { QuaternionPanel } from './components/QuaternionPanel.js';
 import { MatrixPanel } from './components/MatrixPanel.js';
 import { EulerPanel } from './components/EulerPanel.js';
@@ -21,6 +22,37 @@ export function App() {
   const [state, dispatch] = useUrlState();
   const views = deriveViews(state);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Ephemeral view state (not shareable): the sweep scrub and its play animation.
+  const [sweep, setSweep] = useState(1);
+  const [playing, setPlaying] = useState(false);
+
+  // Play animates the sweep identity→target once, then stops.
+  useEffect(() => {
+    if (!playing) return;
+    const DURATION_MS = 1200;
+    let raf = 0;
+    let start = 0;
+    const tick = (t: number): void => {
+      if (start === 0) start = t;
+      const progress = Math.min(1, (t - start) / DURATION_MS);
+      setSweep(progress);
+      if (progress < 1) raf = requestAnimationFrame(tick);
+      else setPlaying(false);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing]);
+
+  function play(): void {
+    setSweep(0);
+    setPlaying(true);
+  }
+
+  function scrub(value: number): void {
+    setPlaying(false);
+    setSweep(value);
+  }
 
   async function copyLink(): Promise<void> {
     try {
@@ -97,7 +129,24 @@ export function App() {
         </div>
       </section>
 
-      <Viewport rotation={views.orientation} />
+      <Viewport
+        rotation={views.orientation}
+        probe={views.probeUnit}
+        axis={views.axisAngle.axis}
+        angle={views.axisAngle.angle}
+        showAxis={state.showAxis}
+        sweep={sweep}
+      />
+
+      <ViewControls
+        state={state}
+        views={views}
+        dispatch={dispatch}
+        sweep={sweep}
+        onSweepChange={scrub}
+        playing={playing}
+        onPlay={play}
+      />
 
       <div className="panels">
         <QuaternionPanel state={state} views={views} dispatch={dispatch} />

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { IDENTITY_QUATERNION, IDENTITY_ROTMAT3, quat } from 'rigid-kit';
+import { IDENTITY_QUATERNION, IDENTITY_ROTMAT3, quat, vec3 } from 'rigid-kit';
 import { deriveViews } from '../src/derive.js';
 import { INITIAL_STATE, type AppState } from '../src/state/app-state.js';
 
@@ -81,6 +81,32 @@ describe('deriveViews — passive display is the inverse rotation', () => {
     expectClose(passive.matrix.m10, active.matrix.m01);
     // Angle negates.
     expectClose(passive.axisAngle.axis.z * passive.axisAngle.angle, -Math.PI / 2);
+  });
+});
+
+describe('deriveViews — probe mapping', () => {
+  it('normalizes the probe and maps X̂ to Ŷ under 90° about Z', () => {
+    const v = deriveViews(stateWith({ rotation: zHalf, probe: vec3(3, 0, 0) }));
+    expectClose(v.probeUnit.x, 1);
+    expectClose(v.probeUnit.y, 0);
+    expectClose(v.probeMapped.x, 0);
+    expectClose(v.probeMapped.y, 1);
+    expectClose(v.probeMapped.z, 0);
+  });
+
+  it('falls back to +X for a zero probe (no direction)', () => {
+    const v = deriveViews(stateWith({ rotation: IDENTITY_QUATERNION, probe: vec3(0, 0, 0) }));
+    expectClose(v.probeUnit.x, 1);
+    expectClose(v.probeUnit.y, 0);
+    expectClose(v.probeUnit.z, 0);
+  });
+
+  it('maps the probe by the passive rotation when passive is set', () => {
+    // Active 90° about Z sends Ŷ → −X̂; the passive (inverse) sends Ŷ → +X̂.
+    const v = deriveViews(stateWith({ rotation: zHalf, probe: vec3(0, 1, 0), passive: true }));
+    expectClose(v.probeMapped.x, 1);
+    expectClose(v.probeMapped.y, 0);
+    expectClose(v.probeMapped.z, 0);
   });
 });
 

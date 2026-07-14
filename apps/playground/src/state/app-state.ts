@@ -13,8 +13,8 @@
  * state and is deliberately NOT part of this object (CLAUDE.md rule #6).
  */
 
-import type { EulerFrame, EulerOrder, Quaternion } from 'rigid-kit';
-import { IDENTITY_QUATERNION, quat } from 'rigid-kit';
+import type { EulerFrame, EulerOrder, Quaternion, Vec3 } from 'rigid-kit';
+import { IDENTITY_QUATERNION, quat, vec3 } from 'rigid-kit';
 
 /** How the quaternion components are ordered for display (SPEC §2 toggle). */
 export type QuatOrder = 'wxyz' | 'xyzw';
@@ -47,6 +47,14 @@ export interface AppState {
   readonly precision: number;
   /** Passive-interpretation display toggle (transposes display only, SPEC §2). */
   readonly passive: boolean;
+  /**
+   * The 3D "probe" vector (SPEC §4 Phase 2): a direction the user points to see
+   * where the rotation sends it. Stored as entered (may be non-unit); the view
+   * normalizes it for the arrow. Shareable, so it lives in the URL (rule #6).
+   */
+  readonly probe: Vec3;
+  /** Whether the rotation-axis arrow is shown in the 3D view (shareable toggle). */
+  readonly showAxis: boolean;
 }
 
 /** The default state: identity rotation, robotics-friendly conventions (SPEC §2). */
@@ -58,6 +66,8 @@ export const INITIAL_STATE: AppState = {
   eulerFrame: 'intrinsic',
   precision: DEFAULT_PRECISION,
   passive: false,
+  probe: vec3(1, 0, 0),
+  showAxis: true,
 };
 
 /** All state transitions. Rotation edits from any panel funnel to `setRotation`. */
@@ -69,6 +79,8 @@ export type Action =
   | { readonly type: 'setEulerFrame'; readonly value: EulerFrame }
   | { readonly type: 'setPrecision'; readonly value: number }
   | { readonly type: 'setPassive'; readonly value: boolean }
+  | { readonly type: 'setProbe'; readonly value: Vec3 }
+  | { readonly type: 'setShowAxis'; readonly value: boolean }
   | { readonly type: 'hydrate'; readonly state: AppState };
 
 /** Clamp precision into the supported range without throwing on bad input. */
@@ -95,6 +107,10 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, precision: clampPrecision(action.value) };
     case 'setPassive':
       return { ...state, passive: action.value };
+    case 'setProbe':
+      return { ...state, probe: action.value };
+    case 'setShowAxis':
+      return { ...state, showAxis: action.value };
     case 'hydrate':
       return action.state;
     default: {

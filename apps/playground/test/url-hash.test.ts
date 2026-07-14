@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
-import { EULER_ORDERS, quat } from 'rigid-kit';
+import { EULER_ORDERS, quat, vec3 } from 'rigid-kit';
 import { INITIAL_STATE, type AppState } from '../src/state/app-state.js';
 import { parseState, serializeState } from '../src/state/url-hash.js';
 
@@ -21,6 +21,8 @@ const arbState: fc.Arbitrary<AppState> = fc.record({
   eulerFrame: fc.constantFrom('intrinsic', 'extrinsic'),
   precision: fc.integer({ min: 3, max: 12 }),
   passive: fc.boolean(),
+  probe: fc.tuple(finite, finite, finite).map(([x, y, z]) => vec3(x, y, z)),
+  showAxis: fc.boolean(),
 }) as fc.Arbitrary<AppState>;
 
 describe('url-hash serialize/parse', () => {
@@ -34,6 +36,9 @@ describe('url-hash serialize/parse', () => {
         expect(Object.is(restored.rotation.x, state.rotation.x)).toBe(true);
         expect(Object.is(restored.rotation.y, state.rotation.y)).toBe(true);
         expect(Object.is(restored.rotation.z, state.rotation.z)).toBe(true);
+        expect(Object.is(restored.probe.x, state.probe.x)).toBe(true);
+        expect(Object.is(restored.probe.y, state.probe.y)).toBe(true);
+        expect(Object.is(restored.probe.z, state.probe.z)).toBe(true);
       }),
     );
   });

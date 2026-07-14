@@ -108,6 +108,40 @@ body {
   pointer-events: none;
 }
 
+.view-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 1.25rem;
+}
+
+.view-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.view-control-group.sweep {
+  flex: 1 1 240px;
+}
+
+.view-control-group.sweep input[type='range'] {
+  flex: 1;
+  min-width: 140px;
+}
+
+.probe-mapped {
+  align-self: center;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+}
+
 .panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
