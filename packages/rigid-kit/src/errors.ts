@@ -16,3 +16,11 @@ export class RigidKitError extends Error {
  * a zero-length rotation axis, from which no rotation can be recovered.
  */
 export class ZeroMagnitudeError extends RigidKitError {}
+
+/**
+ * Thrown by `orthonormalize` when the input cannot be repaired to a nearby proper
+ * rotation: its determinant is ≈ 0 (rank-deficient — no well-defined orthogonal
+ * factor) or negative (a reflection, whose nearest SO(3) matrix is not a small
+ * correction). Repairing those honestly needs a full SVD, out of scope here.
+ */
+export class SingularMatrixError extends RigidKitError {}

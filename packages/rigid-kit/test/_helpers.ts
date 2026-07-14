@@ -1,8 +1,17 @@
 import { expect } from 'vitest';
 import fc from 'fast-check';
 
-import { quat, vec3, type Quaternion, type Vec3 } from '../src/types.js';
+import { quat, vec3, type Quaternion, type Vec3, type RotMat3 } from '../src/types.js';
 import { quatNorm } from '../src/quaternion.js';
+
+const MAT3_KEYS = ['m00', 'm01', 'm02', 'm10', 'm11', 'm12', 'm20', 'm21', 'm22'] as const;
+
+/** Componentwise closeness for 3×3 matrices. */
+export function expectMat3Close(a: RotMat3, b: RotMat3, tol = 1e-12): void {
+  for (const k of MAT3_KEYS) {
+    expect(Math.abs(a[k] - b[k]), k).toBeLessThanOrEqual(tol);
+  }
+}
 
 /**
  * Compare two quaternions as rotations, i.e. up to the double-cover sign.

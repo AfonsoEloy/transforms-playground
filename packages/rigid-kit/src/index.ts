@@ -23,9 +23,13 @@ export {
   type EulerFrame,
 } from './types.js';
 
-export { RigidKitError, ZeroMagnitudeError } from './errors.js';
+export { RigidKitError, ZeroMagnitudeError, SingularMatrixError } from './errors.js';
 
 export { quatNorm, isUnit, normalize, canonicalize, multiply } from './quaternion.js';
+
+export { determinant, orthonormalityError, orthonormalize } from './matrix.js';
+
+export { gimbalProximity } from './gimbal.js';
 
 export {
   quaternionToMatrix,
