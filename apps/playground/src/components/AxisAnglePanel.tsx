@@ -63,6 +63,7 @@ export function AxisAnglePanel({ state, views, dispatch }: Props) {
               value={aa.axis[k]}
               precision={state.precision}
               ariaLabel={`axis ${k}`}
+              step={0.05}
               onCommit={(n) => commitAxisComponent(k, n)}
             />
           </label>

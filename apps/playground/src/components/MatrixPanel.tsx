@@ -121,6 +121,7 @@ export function MatrixPanel({ state, views, dispatch }: Props) {
               value={shown[k]}
               precision={state.precision}
               ariaLabel={`matrix row ${i} col ${j}`}
+              step={0.05}
               onCommit={(n) => commitCell(k, n)}
             />
           )),

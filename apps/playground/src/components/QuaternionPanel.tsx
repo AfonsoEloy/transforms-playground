@@ -71,6 +71,7 @@ export function QuaternionPanel({ state, views, dispatch }: Props) {
               value={q[k]}
               precision={state.precision}
               ariaLabel={`quaternion ${k}`}
+              step={0.05}
               onCommit={(n) => commitComponent(k, n)}
             />
           </label>

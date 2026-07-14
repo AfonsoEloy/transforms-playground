@@ -61,6 +61,7 @@ export function ViewControls({
                 value={p[k]}
                 precision={state.precision}
                 ariaLabel={`probe ${k}`}
+                step={0.1}
                 onCommit={(n) => commitProbe(k, n)}
               />
             </label>
