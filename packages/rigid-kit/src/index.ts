@@ -9,6 +9,8 @@ export {
   rotMat3,
   axisAngle,
   rotationVector,
+  euler,
+  EULER_ORDERS,
   IDENTITY_QUATERNION,
   IDENTITY_ROTMAT3,
   type Vec3,
@@ -16,11 +18,14 @@ export {
   type RotMat3,
   type AxisAngle,
   type RotationVector,
+  type EulerAngles,
+  type EulerOrder,
+  type EulerFrame,
 } from './types.js';
 
 export { RigidKitError, ZeroMagnitudeError } from './errors.js';
 
-export { quatNorm, isUnit, normalize, canonicalize } from './quaternion.js';
+export { quatNorm, isUnit, normalize, canonicalize, multiply } from './quaternion.js';
 
 export {
   quaternionToMatrix,
@@ -36,3 +41,5 @@ export {
   rotationVectorToQuaternion,
   quaternionToRotationVector,
 } from './conversions/quaternion-rotation-vector.js';
+
+export { eulerToQuaternion, quaternionToEuler } from './conversions/quaternion-euler.js';

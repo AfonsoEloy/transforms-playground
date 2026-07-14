@@ -132,9 +132,65 @@ export type RotationVector = Brand<
   'RotationVector'
 >;
 
+/**
+ * The 12 Euler sequences: 6 Tait–Bryan (three distinct axes) and 6 proper Euler
+ * (first axis repeated as third). A sequence names the axes in application order.
+ */
+export const EULER_ORDERS = [
+  'XYZ',
+  'XZY',
+  'YXZ',
+  'YZX',
+  'ZXY',
+  'ZYX',
+  'XYX',
+  'XZX',
+  'YXY',
+  'YZY',
+  'ZXZ',
+  'ZYZ',
+] as const;
+
+export type EulerOrder = (typeof EULER_ORDERS)[number];
+
+/**
+ * Frame the sequence rotates about: `intrinsic` = each rotation is about the new
+ * (already-rotated) axis; `extrinsic` = all rotations are about the fixed world
+ * axes. They are reverses of each other: intrinsic "XYZ" ≡ extrinsic "ZYX".
+ */
+export type EulerFrame = 'intrinsic' | 'extrinsic';
+
+/**
+ * Euler-angle rotation: three angles (radians) applied about `order`'s axes in
+ * the given `frame`. `a1`, `a2`, `a3` are the rotations about the first, second,
+ * and third axis of `order` respectively. Angles are NOT constrained to a
+ * canonical range by the type — extraction reports canonical ranges.
+ */
+export type EulerAngles = Brand<
+  {
+    readonly a1: number;
+    readonly a2: number;
+    readonly a3: number;
+    readonly order: EulerOrder;
+    readonly frame: EulerFrame;
+  },
+  'EulerAngles'
+>;
+
 /** Construct an immutable axis–angle. Pass a unit axis; not normalized here. */
 export function axisAngle(axis: Vec3, angle: number): AxisAngle {
   return Object.freeze({ axis, angle }) as AxisAngle;
+}
+
+/** Construct an immutable Euler-angle triple with its sequence and frame. */
+export function euler(
+  a1: number,
+  a2: number,
+  a3: number,
+  order: EulerOrder,
+  frame: EulerFrame,
+): EulerAngles {
+  return Object.freeze({ a1, a2, a3, order, frame }) as EulerAngles;
 }
 
 /** Construct an immutable rotation vector from its components (axis · angle). */
