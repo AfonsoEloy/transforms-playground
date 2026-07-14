@@ -27,6 +27,17 @@ export function multiply(a: Quaternion, b: Quaternion): Quaternion {
 }
 
 /**
+ * Quaternion conjugate q* = (w, −x, −y, −z): negate the vector part. For a UNIT
+ * quaternion this is exactly the inverse rotation (q ⊗ q* = identity), so it is
+ * how the UI shows the passive/inverse view (SPEC §2). For a non-unit quaternion
+ * it is the conjugate but not the inverse — no normalization happens here
+ * (CLAUDE.md rule 3).
+ */
+export function conjugate(q: Quaternion): Quaternion {
+  return quat(q.w, -q.x, -q.y, -q.z);
+}
+
+/**
  * Whether q is unit length to within `tol` (absolute error on the norm).
  * Purely diagnostic — conversions never call this to auto-repair.
  */

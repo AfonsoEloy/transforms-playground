@@ -25,7 +25,7 @@ export {
 
 export { RigidKitError, ZeroMagnitudeError, SingularMatrixError } from './errors.js';
 
-export { quatNorm, isUnit, normalize, canonicalize, multiply } from './quaternion.js';
+export { quatNorm, isUnit, normalize, canonicalize, conjugate, multiply } from './quaternion.js';
 
 export { determinant, orthonormalityError, orthonormalize } from './matrix.js';
 
