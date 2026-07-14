@@ -76,6 +76,38 @@ body {
   margin-left: auto;
 }
 
+/* 3D view sits above the inputs (SPEC §5 mobile: 3D above inputs). */
+.viewport {
+  position: relative;
+  width: 100%;
+  height: min(52vh, 460px);
+  margin-bottom: 1.25rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.viewport canvas {
+  display: block;
+}
+
+/* Once the renderer has attached its canvas, the placeholder is no longer needed. */
+.viewport:has(canvas) .viewport-fallback {
+  display: none;
+}
+
+.viewport-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
 .panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

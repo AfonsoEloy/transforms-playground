@@ -10,6 +10,7 @@ import { IDENTITY_QUATERNION } from 'rigid-kit';
 import { deriveViews } from './derive.js';
 import { MAX_PRECISION, MIN_PRECISION, type AngleUnit, type QuatOrder } from './state/app-state.js';
 import { useUrlState } from './state/use-url-state.js';
+import { Viewport } from './components/Viewport.js';
 import { QuaternionPanel } from './components/QuaternionPanel.js';
 import { MatrixPanel } from './components/MatrixPanel.js';
 import { EulerPanel } from './components/EulerPanel.js';
@@ -95,6 +96,8 @@ export function App() {
           </button>
         </div>
       </section>
+
+      <Viewport rotation={views.orientation} />
 
       <div className="panels">
         <QuaternionPanel state={state} views={views} dispatch={dispatch} />

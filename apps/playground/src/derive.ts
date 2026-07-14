@@ -48,6 +48,13 @@ export interface DerivedViews {
   readonly quaternionNorm: number;
   /** Whether the hub is unit length (drives the panel's non-unit warning). */
   readonly quaternionIsUnit: boolean;
+  /**
+   * The unit rotation actually visualized/converted: the (passive-adjusted) hub
+   * normalized to unit length. Distinct from `quaternion`, which is the raw
+   * display form and may be non-unit while the user is mid-edit. Feed this to the
+   * 3D view so it matches the matrix/Euler/axis-angle forms, which derive from it.
+   */
+  readonly orientation: Quaternion;
   readonly matrix: RotMat3;
   readonly euler: EulerAngles;
   readonly axisAngle: AxisAngle;
@@ -84,6 +91,7 @@ export function deriveViews(state: AppState): DerivedViews {
     quaternion: canonicalize(shown),
     quaternionNorm: norm,
     quaternionIsUnit: isUnit(shown, 1e-9),
+    orientation: unit,
     matrix: quaternionToMatrix(unit),
     euler,
     axisAngle: quaternionToAxisAngle(unit),
