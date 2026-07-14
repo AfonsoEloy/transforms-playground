@@ -10,9 +10,11 @@ export {
   axisAngle,
   rotationVector,
   euler,
+  transform,
   EULER_ORDERS,
   IDENTITY_QUATERNION,
   IDENTITY_ROTMAT3,
+  IDENTITY_TRANSFORM,
   type Vec3,
   type Quaternion,
   type RotMat3,
@@ -21,6 +23,7 @@ export {
   type EulerAngles,
   type EulerOrder,
   type EulerFrame,
+  type Transform,
 } from './types.js';
 
 export { RigidKitError, ZeroMagnitudeError, SingularMatrixError } from './errors.js';
@@ -36,6 +39,8 @@ export {
 } from './quaternion.js';
 
 export { determinant, orthonormalityError, orthonormalize } from './matrix.js';
+
+export { composeTransform, invertTransform, transformPoint, composeChain } from './transform.js';
 
 export { gimbalProximity } from './gimbal.js';
 

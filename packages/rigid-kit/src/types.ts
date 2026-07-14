@@ -197,3 +197,27 @@ export function euler(
 export function rotationVector(x: number, y: number, z: number): RotationVector {
   return Object.freeze({ x, y, z }) as RotationVector;
 }
+
+/**
+ * Rigid transform in SE(3): a `rotation` (unit quaternion) and a `translation`
+ * (Vec3), together the homogeneous 4×4 matrix [R | t; 0 1] — rotation top-left,
+ * translation last column (SPEC §2). A point maps as p' = R p + t (active,
+ * right-handed, column vectors). The rotation part inherits the quaternion
+ * convention: the type does not enforce unit length; the transform algebra in
+ * `transform.ts` assumes a unit rotation, like the rest of rigid-kit.
+ */
+export type Transform = Brand<
+  {
+    readonly rotation: Quaternion;
+    readonly translation: Vec3;
+  },
+  'Transform'
+>;
+
+/** Construct an immutable rigid transform. Pass a unit rotation (not normalized here). */
+export function transform(rotation: Quaternion, translation: Vec3): Transform {
+  return Object.freeze({ rotation, translation }) as Transform;
+}
+
+/** The identity transform: identity rotation, zero translation. */
+export const IDENTITY_TRANSFORM: Transform = transform(IDENTITY_QUATERNION, vec3(0, 0, 0));
