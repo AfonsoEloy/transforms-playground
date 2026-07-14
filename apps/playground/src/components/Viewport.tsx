@@ -26,7 +26,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { Quaternion, Vec3 } from 'rigid-kit';
+import type { Quaternion, Transform, Vec3 } from 'rigid-kit';
 import { applyToThreeQuaternion, applyToThreeVec3 } from '../adapters/quaternion.js';
 import { createWorldRoot } from '../adapters/scene-frame.js';
 import { buildTriad } from '../adapters/triad.js';
@@ -35,11 +35,14 @@ import { buildArrow, MARKER_COLORS } from '../adapters/markers.js';
 /** The live inputs the render loop reads each frame (mutated in place, no re-subscribe). */
 interface ViewInputs {
   rotation: Quaternion;
+  translation: Vec3;
   probe: Vec3;
   axis: Vec3;
   angle: number;
   showAxis: boolean;
   sweep: number;
+  frames: readonly Transform[];
+  showIntermediates: boolean;
 }
 
 const BACKGROUND_LIGHT = new Color('#f4f5f7');
@@ -59,6 +62,13 @@ const PROBE_LEN = 1.2;
 const AXIS_LEN = 1.25;
 const LABEL_DISTANCE = 1.45;
 
+// Intermediate chain frames (SPEC §4 Phase 3): a fixed pool of dim triads shown/
+// hidden and re-posed per frame, so the scene never rebuilds geometry as the
+// chain length changes. Longer chains beyond the pool simply aren't drawn.
+const INTERMEDIATE_LEN = 0.8;
+const INTERMEDIATE_OPACITY = 0.5;
+const MAX_INTERMEDIATE_FRAMES = 16;
+
 function prefersDark(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -68,18 +78,24 @@ function prefersDark(): boolean {
 }
 
 export interface ViewportProps {
-  /** The target rotation to visualize (passive-adjusted, unit quaternion the panels show). */
+  /** The composed rotation to visualize (passive-adjusted, unit quaternion). */
   readonly rotation: Quaternion;
+  /** The composed translation — where the rotated frame sits (SPEC §4 Phase 3). */
+  readonly translation: Vec3;
   /** Unit probe direction (views.probeUnit). */
   readonly probe: Vec3;
-  /** Rotation axis (views.axisAngle.axis) — meaningful only when `angle` > 0. */
+  /** Rotation axis (views.composed.axisAngle.axis) — meaningful only when `angle` > 0. */
   readonly axis: Vec3;
-  /** Rotation angle in radians (views.axisAngle.angle). */
+  /** Rotation angle in radians (views.composed.axisAngle.angle). */
   readonly angle: number;
   /** Whether to draw the rotation-axis arrow. */
   readonly showAxis: boolean;
-  /** Animation scrub in [0,1]: 0 = identity, 1 = the full rotation. */
+  /** Animation scrub in [0,1]: 0 = identity, 1 = the full composed transform. */
   readonly sweep: number;
+  /** Cumulative intermediate chain frames (views.frames). */
+  readonly frames: readonly Transform[];
+  /** Whether to draw the intermediate frames. */
+  readonly showIntermediates: boolean;
 }
 
 export function Viewport(props: ViewportProps): JSX.Element {
@@ -87,19 +103,25 @@ export function Viewport(props: ViewportProps): JSX.Element {
   // Latest inputs for the render loop; updated every render, read every frame.
   const inputsRef = useRef<ViewInputs>({
     rotation: props.rotation,
+    translation: props.translation,
     probe: props.probe,
     axis: props.axis,
     angle: props.angle,
     showAxis: props.showAxis,
     sweep: props.sweep,
+    frames: props.frames,
+    showIntermediates: props.showIntermediates,
   });
   inputsRef.current = {
     rotation: props.rotation,
+    translation: props.translation,
     probe: props.probe,
     axis: props.axis,
     angle: props.angle,
     showAxis: props.showAxis,
     sweep: props.sweep,
+    frames: props.frames,
+    showIntermediates: props.showIntermediates,
   };
 
   // Build the scene once on mount; tear it down fully on unmount.
@@ -159,6 +181,18 @@ export function Viewport(props: ViewportProps): JSX.Element {
     const rotatedFrame = buildTriad({ length: ROTATED_LEN, opacity: 1.0, labels: false });
     worldRoot.add(rotatedFrame);
 
+    // Pool of dim triads for the intermediate chain frames (shown on demand).
+    const intermediateFrames = Array.from({ length: MAX_INTERMEDIATE_FRAMES }, () => {
+      const triad = buildTriad({
+        length: INTERMEDIATE_LEN,
+        opacity: INTERMEDIATE_OPACITY,
+        labels: false,
+      });
+      triad.visible = false;
+      worldRoot.add(triad);
+      return triad;
+    });
+
     // Markers: probe direction, where it maps to, and the rotation axis.
     const probeArrow = buildArrow(MARKER_COLORS.probe, PROBE_LEN);
     const mappedArrow = buildArrow(MARKER_COLORS.mapped, PROBE_LEN, 0.85);
@@ -172,9 +206,11 @@ export function Viewport(props: ViewportProps): JSX.Element {
 
     function applyInputs(): void {
       const v = inputsRef.current;
-      // Shown rotation = slerp(identity → target, sweep); sweep = 1 is the full rotation.
+      // Shown transform = sweep from identity to the composed target: slerp the
+      // rotation, lerp the translation from the origin (sweep = 1 is the full result).
       applyToThreeQuaternion(v.rotation, targetQuat);
       rotatedFrame.quaternion.slerpQuaternions(identityQuat, targetQuat, v.sweep);
+      applyToThreeVec3(v.translation, rotatedFrame.position).multiplyScalar(v.sweep);
 
       // Probe arrow points along the (unit) probe direction.
       probeArrow.setDirection(applyToThreeVec3(v.probe, scratch).normalize());
@@ -188,6 +224,20 @@ export function Viewport(props: ViewportProps): JSX.Element {
         axisArrow.setDirection(applyToThreeVec3(v.axis, scratch).normalize());
       } else {
         axisArrow.visible = false;
+      }
+
+      // Intermediate chain frames: draw one triad per cumulative frame, posed at
+      // its transform. Hidden when the toggle is off or past the pool size.
+      for (let i = 0; i < intermediateFrames.length; i++) {
+        const triad = intermediateFrames[i]!;
+        const frame = v.showIntermediates ? v.frames[i] : undefined;
+        if (frame) {
+          triad.visible = true;
+          applyToThreeVec3(frame.translation, triad.position);
+          applyToThreeQuaternion(frame.rotation, triad.quaternion);
+        } else {
+          triad.visible = false;
+        }
       }
     }
 

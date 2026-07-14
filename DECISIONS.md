@@ -97,3 +97,15 @@ Append-only log of architectural and convention decisions. Format: date, decisio
 **Alternatives:** Host-local Node via nvm/Volta (drifts per machine, pollutes host); devcontainers only (heavier, editor-coupled — the plain compose service is enough and CI-friendly).
 
 **Consequences:** A running Docker daemon is a prerequisite. First `npm install` populates the named volumes; commands are marginally more verbose. CI reuses the same image, so "works on my machine" and "works in CI" converge.
+
+---
+
+## 009 — 2026-07-14 — Composition chain is the app model; full 4×4 rigid transforms
+
+**Decision:** Phase 3 composition is built as *the* app model rather than bolted onto the single-rotation editor. State holds an ordered `chain` of `ChainElement`s (each an SE(3) `Transform` = `{rotation, translation}` plus `enabled`/`inverted` flags and a stable `id`), with one `selectedId`. The composed chain result `T1·…·Tn` is the canonical hub that feeds the 3D view, probe, and result readout; the five representation panels edit the currently-selected element. A single-element chain is exactly the old single-rotation editor. Rotations are rotation-*and*-translation (full 4×4 homogeneous transforms in minimal `{rotation, translation}` form), not rotation-only.
+
+**Context:** SPEC §4 Phase 3 calls for an ordered, reorderable, toggle/invertable chain with a live composed result and shareable state, and SPEC §2 lists 4×4 homogeneous transforms as a first-class concern. Making the chain the model (rather than a separate "compose" surface layered over a rotation hub) keeps one source of truth: `deriveViews(state)` produces both the selected-element reps (panels) and the composed result (3D/probe/readout) from the same chain, so there is no second code path to keep in sync. Modeling elements as full SE(3) transforms from the start avoids a later rotation→transform migration.
+
+**Alternatives:** (a) Rotation-only chain with translation deferred — rejected: SPEC §2/§4 want 4×4, and retrofitting translation touches every rep/derive/URL path twice. (b) Separate single-rotation hub + independent chain list that references it — rejected: two sources of truth, ambiguous which one the 3D view follows, and the "edit the selected element in any representation" UX falls out naturally only when the chain *is* the model.
+
+**Consequences:** The old `rotation` hub field is gone; `setRotation`/`setTranslation` retarget the current selection, so panels and `commit.ts` are unchanged. `deriveViews` is O(n) over the chain (chain-of-10 recompute is far under the 1 ms Phase 3 budget). The chain serializes to the URL as a compact `c=` list (`w,x,y,z,tx,ty,tz,en,inv` per element, `;`-separated; both `,` and `;` survive hash-encoding via explicit de-encoding), with selection as an index `sel=` and `inter=` for the intermediate-frames toggle; legacy single-quaternion `q=` URLs are honored as a 1-element chain. Intermediate cumulative frames are drawn from a fixed pool of 16 dim triads (shown/hidden/re-posed per frame, never rebuilt), so chains longer than 16 simply don't draw the overflow frames.

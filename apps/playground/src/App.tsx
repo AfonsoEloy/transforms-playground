@@ -130,11 +130,14 @@ export function App() {
 
       <Viewport
         rotation={views.composed.orientation}
+        translation={views.composed.translation}
         probe={views.probeUnit}
         axis={views.composed.axisAngle.axis}
         angle={views.composed.axisAngle.angle}
         showAxis={state.showAxis}
         sweep={sweep}
+        frames={views.frames}
+        showIntermediates={state.showIntermediates}
       />
 
       <ViewControls

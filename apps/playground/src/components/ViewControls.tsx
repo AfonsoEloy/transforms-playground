@@ -80,6 +80,15 @@ export function ViewControls({
         <span className="field-label">rotation axis</span>
       </label>
 
+      <label className="field checkbox">
+        <input
+          type="checkbox"
+          checked={state.showIntermediates}
+          onChange={(e) => dispatch({ type: 'setShowIntermediates', value: e.target.checked })}
+        />
+        <span className="field-label">intermediate frames</span>
+      </label>
+
       <div className="view-control-group sweep">
         <span className="field-label">sweep (identity → target)</span>
         <div className="field-row">
