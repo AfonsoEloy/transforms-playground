@@ -8,7 +8,7 @@ Euler, active vs passive, degrees vs radians, Y-up vs Z-up. This tool makes ever
 of those choices visible and toggleable, so you can debug the mismatch instead of
 guessing at it.
 
-> **Live demo:** _coming soon_ &nbsp;·&nbsp; Fully static, client-side, no login, no backend.
+> **Live demo:** <https://afonsoeloy.github.io/transforms-playground/> &nbsp;·&nbsp; Fully static, client-side, no login, no backend.
 
 <!-- TODO(launch): replace with an animated GIF of the tool in use (SPEC §6). -->
 <!-- ![Transforms Playground](docs/demo.gif) -->
