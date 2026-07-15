@@ -135,6 +135,19 @@ export function App() {
         </div>
       </section>
 
+      {/* Probe/view controls sit above the viewport so the 3D frames stay near the
+          top of the page: edit a representation below, glance up to see the result,
+          without long scrolls between the inputs and the visualization. */}
+      <ViewControls
+        state={state}
+        views={views}
+        dispatch={dispatch}
+        sweep={sweep}
+        onSweepChange={scrub}
+        playing={playing}
+        onPlay={play}
+      />
+
       <Suspense
         fallback={
           <div className="viewport">
@@ -155,19 +168,9 @@ export function App() {
         />
       </Suspense>
 
-      <ViewControls
-        state={state}
-        views={views}
-        dispatch={dispatch}
-        sweep={sweep}
-        onSweepChange={scrub}
-        playing={playing}
-        onPlay={play}
-      />
-
+      {/* Element selector stays directly above the representation boxes it drives —
+          the "highlighted above" hint refers to this panel. */}
       <ChainPanel state={state} dispatch={dispatch} />
-      <ChainResult state={state} views={views} />
-      <ChainExport state={state} views={views} />
 
       <p className="edit-hint">Editing the selected element (highlighted above):</p>
       <div className="panels">
@@ -177,8 +180,12 @@ export function App() {
         <AxisAnglePanel state={state} views={views} dispatch={dispatch} />
         <RotationVectorPanel state={state} views={views} dispatch={dispatch} />
         <TranslationPanel state={state} views={views} dispatch={dispatch} />
-        <ImportPanel state={state} dispatch={dispatch} />
       </div>
+
+      {/* Composed result + downstream outputs go last: read-only once the chain is set. */}
+      <ChainResult state={state} views={views} />
+      <ChainExport state={state} views={views} />
+      <ImportPanel state={state} dispatch={dispatch} />
     </main>
   );
 }
