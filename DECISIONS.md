@@ -109,3 +109,15 @@ Append-only log of architectural and convention decisions. Format: date, decisio
 **Alternatives:** (a) Rotation-only chain with translation deferred — rejected: SPEC §2/§4 want 4×4, and retrofitting translation touches every rep/derive/URL path twice. (b) Separate single-rotation hub + independent chain list that references it — rejected: two sources of truth, ambiguous which one the 3D view follows, and the "edit the selected element in any representation" UX falls out naturally only when the chain *is* the model.
 
 **Consequences:** The old `rotation` hub field is gone; `setRotation`/`setTranslation` retarget the current selection, so panels and `commit.ts` are unchanged. `deriveViews` is O(n) over the chain (chain-of-10 recompute is far under the 1 ms Phase 3 budget). The chain serializes to the URL as a compact `c=` list (`w,x,y,z,tx,ty,tz,en,inv` per element, `;`-separated; both `,` and `;` survive hash-encoding via explicit de-encoding), with selection as an index `sel=` and `inter=` for the intermediate-frames toggle; legacy single-quaternion `q=` URLs are honored as a 1-element chain. Intermediate cumulative frames are drawn from a fixed pool of 16 dim triads (shown/hidden/re-posed per frame, never rebuilt), so chains longer than 16 simply don't draw the overflow frames.
+
+---
+
+## 010 — 2026-07-22 — `rigid-kit` stays unpublished; consumed only as a workspace dependency
+
+**Decision:** `rigid-kit` will NOT be published to npm. SPEC §6's "publish `rigid-kit` to npm with its own README and typed docs" checklist item is dropped. The package keeps its library-grade constraints — zero runtime dependencies, no DOM/React/Three.js imports, 100% public-API test coverage, its own build to `dist/` — but ships only as a workspace dependency of `apps/playground`.
+
+**Context:** Publishing carries ongoing owner cost (registry account and 2FA, semver discipline, release process, issue/PR triage from third-party consumers, deprecation duty) that the project owner does not want to take on. The library's value here is architectural — an enforced boundary that keeps the math testable in isolation and free of graphics conventions (DECISIONS #002) — and that value is fully realized inside the monorepo. Nothing about the code changes; only distribution does.
+
+**Alternatives:** (a) Publish under a scoped name (`@afonsoeloy/rigid-kit`) — same maintenance burden, merely a different name. (b) Publish once and mark it unmaintained — worse than not publishing: it advertises an API that will not be supported. (c) Delete the package boundary and fold the math into the app — rejected: the boundary is the design (DECISIONS #002), and it is worth keeping regardless of distribution.
+
+**Consequences:** `version` stays at `0.0.0` and `private: true` may be set to make an accidental `npm publish` impossible. No `packages/rigid-kit/README.md` is required (the root README's `rigid-kit` section documents it). SPEC §6 and the README are updated to say the library is not distributed. If publishing is ever reconsidered, this entry is superseded by a new one — the code needs no changes, only a version, a README, and a release process.

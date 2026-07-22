@@ -37,7 +37,7 @@ Any new code that touches rotations must state its convention assumptions in a d
 Two packages in one repo (npm workspaces):
 
 ```
-/packages/rigid-kit      ← pure TypeScript math library. Zero dependencies. Published to npm.
+/packages/rigid-kit      ← pure TypeScript math library. Zero dependencies. Workspace-only, not published (DECISIONS #010).
 /apps/playground         ← Vite + React + Three.js site. Depends on rigid-kit.
 ```
 
@@ -91,6 +91,6 @@ Two packages in one repo (npm workspaces):
 ## 6. Launch checklist
 
 - README with animated GIF of the tool, convention documentation table, and link to live site.
-- `rigid-kit` published to npm with its own README and typed docs.
+- ~~`rigid-kit` published to npm with its own README and typed docs.~~ **Dropped** — the library stays workspace-only, not distributed (DECISIONS #010).
 - Deployed to GitHub Pages (or Vercel) with a canonical URL.
 - Posts: r/robotics, Show HN, LinkedIn. Each post leads with a concrete pain point ("ever lost an afternoon to wxyz vs xyzw?").

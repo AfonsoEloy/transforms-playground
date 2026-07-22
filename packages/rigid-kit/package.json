@@ -1,6 +1,8 @@
 {
   "name": "rigid-kit",
   "version": "0.0.0",
+  "//": "Not published to npm — workspace-only dependency of apps/playground (DECISIONS #010). `private` makes an accidental publish impossible.",
+  "private": true,
   "description": "Pure TypeScript rotation & rigid-transform math. Zero runtime dependencies, convention-explicit.",
   "type": "module",
   "license": "MIT",
