@@ -29,6 +29,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { Quaternion, Transform, Vec3 } from 'rigid-kit';
 import { applyToThreeQuaternion, applyToThreeVec3 } from '../adapters/quaternion.js';
 import { createWorldRoot } from '../adapters/scene-frame.js';
+import { makeAxisLabel, setLabelText } from '../adapters/labels.js';
 import { buildTriad } from '../adapters/triad.js';
 import { buildArrow, MARKER_COLORS } from '../adapters/markers.js';
 
@@ -42,6 +43,7 @@ interface ViewInputs {
   showAxis: boolean;
   sweep: number;
   frames: readonly Transform[];
+  frameLabels: readonly string[];
   showIntermediates: boolean;
 }
 
@@ -69,6 +71,14 @@ const INTERMEDIATE_LEN = 0.8;
 const INTERMEDIATE_OPACITY = 0.5;
 const MAX_INTERMEDIATE_FRAMES = 16;
 
+// Each drawn chain frame carries its name (T1, T2, …) near its own origin, in the
+// frame's NEGATIVE octant — the one direction no arrow points, so the (depth-test-
+// free) text never lands on top of an axis. It rides along with the frame's pose.
+const NAME_LABEL_SIZE = 0.2;
+const NAME_LABEL_OFFSET = -0.11;
+const NAME_LABEL_COLOR_LIGHT = '#3a3f47';
+const NAME_LABEL_COLOR_DARK = '#d5d8dd';
+
 function prefersDark(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -94,6 +104,8 @@ export interface ViewportProps {
   readonly sweep: number;
   /** Cumulative intermediate chain frames (views.frames). */
   readonly frames: readonly Transform[];
+  /** Name to draw at each frame's origin (views.frameLabels), same order as `frames`. */
+  readonly frameLabels: readonly string[];
   /** Whether to draw the intermediate frames. */
   readonly showIntermediates: boolean;
 }
@@ -110,6 +122,7 @@ export function Viewport(props: ViewportProps): JSX.Element {
     showAxis: props.showAxis,
     sweep: props.sweep,
     frames: props.frames,
+    frameLabels: props.frameLabels,
     showIntermediates: props.showIntermediates,
   });
   inputsRef.current = {
@@ -121,6 +134,7 @@ export function Viewport(props: ViewportProps): JSX.Element {
     showAxis: props.showAxis,
     sweep: props.sweep,
     frames: props.frames,
+    frameLabels: props.frameLabels,
     showIntermediates: props.showIntermediates,
   };
 
@@ -181,16 +195,21 @@ export function Viewport(props: ViewportProps): JSX.Element {
     const rotatedFrame = buildTriad({ length: ROTATED_LEN, opacity: 1.0, labels: false });
     worldRoot.add(rotatedFrame);
 
-    // Pool of dim triads for the intermediate chain frames (shown on demand).
+    // Pool of dim triads for the intermediate chain frames (shown on demand), each
+    // with a name sprite that is re-lettered — never rebuilt — as the chain changes.
+    const nameColor = dark ? NAME_LABEL_COLOR_DARK : NAME_LABEL_COLOR_LIGHT;
     const intermediateFrames = Array.from({ length: MAX_INTERMEDIATE_FRAMES }, () => {
       const triad = buildTriad({
         length: INTERMEDIATE_LEN,
         opacity: INTERMEDIATE_OPACITY,
         labels: false,
       });
+      const name = makeAxisLabel('', nameColor, NAME_LABEL_SIZE);
+      name.position.set(NAME_LABEL_OFFSET, NAME_LABEL_OFFSET, NAME_LABEL_OFFSET);
+      triad.add(name);
       triad.visible = false;
       worldRoot.add(triad);
-      return triad;
+      return { triad, name };
     });
 
     // Markers: probe direction, where it maps to, and the rotation axis.
@@ -229,12 +248,13 @@ export function Viewport(props: ViewportProps): JSX.Element {
       // Intermediate chain frames: draw one triad per cumulative frame, posed at
       // its transform. Hidden when the toggle is off or past the pool size.
       for (let i = 0; i < intermediateFrames.length; i++) {
-        const triad = intermediateFrames[i]!;
+        const { triad, name } = intermediateFrames[i]!;
         const frame = v.showIntermediates ? v.frames[i] : undefined;
         if (frame) {
           triad.visible = true;
           applyToThreeVec3(frame.translation, triad.position);
           applyToThreeQuaternion(frame.rotation, triad.quaternion);
+          setLabelText(name, v.frameLabels[i] ?? '', nameColor);
         } else {
           triad.visible = false;
         }

@@ -26,7 +26,8 @@ guessing at it.
 - **Composition chain** — an ordered list of full 4×4 rigid transforms
   (`T₁ · T₂ · …`), each editable in any representation, reorderable, toggleable, and
   invertible. The live composed result drives the 3D view; intermediate frames are
-  drawable.
+  drawable, each labelled at its origin with the transform that produced it
+  (`T1`, `T2`, `T3⁻¹`, …) so it's obvious which frame is which.
 - **Numerical honesty** — user-selectable precision, non-unit-quaternion and
   non-orthonormal-matrix warnings with one-click `Normalize` / `Orthonormalize (SVD)`,
   and a gimbal-lock proximity indicator. Nothing is silently "fixed".
@@ -60,7 +61,8 @@ An npm-workspaces monorepo with a hard boundary between pure math and the app:
 
 ```
 packages/rigid-kit   Pure TypeScript rotation & transform math.
-                     Zero runtime dependencies. No DOM, React, or Three.js. Publishable.
+                     Zero runtime dependencies. No DOM, React, or Three.js.
+                     Workspace-only — not published to npm (see DECISIONS.md #010).
 apps/playground      Vite + React + Three.js static site. Depends on rigid-kit.
                      All Three.js ↔ rigid-kit adapters live in src/adapters/.
 ```

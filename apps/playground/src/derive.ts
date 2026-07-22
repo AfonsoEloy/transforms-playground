@@ -107,6 +107,13 @@ export interface DerivedViews {
    * order — the intermediate frames the 3D scene can draw (SPEC §4 Phase 3).
    */
   readonly frames: readonly Transform[];
+  /**
+   * Display name for each entry of `frames`, in the same order: the chain-panel
+   * label of the element that produced it (`T1`, `T2`, …, with `⁻¹` when the
+   * element is inverted). Numbered by CHAIN position, not by position among the
+   * enabled elements, so disabling T2 leaves T3 called "T3" in the 3D view.
+   */
+  readonly frameLabels: readonly string[];
 }
 
 /** Unit-length copy of a vector; falls back to +X for a zero vector (no direction). */
@@ -157,12 +164,15 @@ export function deriveViews(state: AppState): DerivedViews {
   const selReps = rotationReps(unitSel, state.eulerOrder, state.eulerFrame);
 
   // --- composed chain result (3D view, probe, readout) -----------------------
-  const resolved = state.chain
-    .filter((e) => e.enabled)
-    .map((e) => {
-      const u = unitTransform(e.transform);
-      return e.inverted ? invertTransform(u) : u;
-    });
+  // Keep the chain index alongside each enabled element: the 3D frame names must
+  // match the chain panel's numbering, which counts disabled elements too.
+  const enabled = state.chain
+    .map((element, chainIndex) => ({ element, chainIndex }))
+    .filter(({ element }) => element.enabled);
+  const resolved = enabled.map(({ element }) => {
+    const u = unitTransform(element.transform);
+    return element.inverted ? invertTransform(u) : u;
+  });
   const composedT = composeChain(resolved);
   const cShownRaw = state.passive ? conjugate(composedT.rotation) : composedT.rotation;
   const cUnit = unitOrIdentity(cShownRaw);
@@ -173,6 +183,9 @@ export function deriveViews(state: AppState): DerivedViews {
   for (let k = 1; k <= resolved.length; k++) {
     frames.push(composeChain(resolved.slice(0, k)));
   }
+  const frameLabels = enabled.map(
+    ({ element, chainIndex }) => `T${chainIndex + 1}${element.inverted ? '⁻¹' : ''}`,
+  );
 
   const probeUnit = unitOrX(state.probe);
 
@@ -194,5 +207,6 @@ export function deriveViews(state: AppState): DerivedViews {
       ...cReps,
     },
     frames,
+    frameLabels,
   };
 }

@@ -164,6 +164,7 @@ export function App() {
           showAxis={state.showAxis}
           sweep={sweep}
           frames={views.frames}
+          frameLabels={views.frameLabels}
           showIntermediates={state.showIntermediates}
         />
       </Suspense>

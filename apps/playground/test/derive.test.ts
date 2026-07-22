@@ -196,4 +196,18 @@ describe('deriveViews — composed chain result', () => {
     );
     expect(v.frames.length).toBe(2); // two enabled elements
   });
+
+  it('names each drawn frame by its CHAIN position, skipping disabled elements', () => {
+    // T2 is off, so the second drawn frame is T3 — never renumbered to "T2".
+    const v = deriveViews(
+      chainState([{ rotation: zHalf }, { rotation: zHalf, enabled: false }, { t: [2, 0, 0] }]),
+    );
+    expect(v.frameLabels).toEqual(['T1', 'T3']);
+    expect(v.frameLabels.length).toBe(v.frames.length);
+  });
+
+  it('marks an inverted element in its frame name', () => {
+    const v = deriveViews(chainState([{ rotation: zHalf }, { rotation: zHalf, inverted: true }]));
+    expect(v.frameLabels).toEqual(['T1', 'T2⁻¹']);
+  });
 });
